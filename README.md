@@ -72,18 +72,19 @@ The match screen explains why that driver was picked, for example "1 past ride t
 - The driver confirms in GClifts when the money arrives, so riders who don't pay are easy to spot.
 
 ### 6. Finish the ride
-- The rider records how they paid and rates the ride from 1 to 5 stars.
+- The rider records how they paid and taps 1 to 5 stars to rate the ride. A rating is required, because it feeds future matches.
+- They can **leave a review**: an optional note of up to 280 characters about the driver.
 - The ride is saved to their ride log as "Waiting for driver" until the driver confirms the payment. (Sample drivers confirm after a few seconds.)
 
 ### 7. Drive
 - A driver sets whether they're available now, their car, open seats, general area, and which payment methods they prefer.
-- **Your riders** lists each rider they've driven, with the trip and how the rider paid. The driver taps **Confirm payment received** when the money shows up, and can message each rider.
+- **Your riders** lists each rider they've driven, with the trip, how the rider paid, and the rider's stars and review. The driver taps **Confirm payment received** when the money shows up, and can message each rider.
 - A new driver starts with two sample riders, one of whom is waiting for a payment confirmation, so the demo shows this right away.
 
 ### 8. Ride log
 - A summary line, for example: "3 rides with 2 drivers. You pay with Venmo most often."
 - **Drivers you've ridden with:** number of rides, what you paid with, and what they prefer.
-- **Every ride:** date, trip, driver, payment method, whether the driver confirmed it, and rating.
+- **Every ride:** date, trip, driver, payment method, whether the driver confirmed it, rating and review.
 - **Reset my sample rides** restores the sample rides and keeps the rider's own rides.
 - Past drivers are matched first on future rides.
 
@@ -93,7 +94,7 @@ The match screen explains why that driver was picked, for example "1 past ride t
 |---|---|
 | **Users** | email (key), name, school |
 | **Drivers** | id, email, car, seats, zone, pay[], online |
-| **Rides** | id, riderEmail, riderName, driverId, from, to, when, paidWith, confirmed, rating, code, chat[] |
+| **Rides** | id, riderEmail, riderName, driverId, from, to, when, paidWith, confirmed, rating, review, code, chat[] |
 
 ## Demo stops (Milledgeville)
 
@@ -177,7 +178,7 @@ Region: the project is in `us-east-2`; the Agent Toolkit runs in `us-east-1`.
 2. **Connect to school:** choose Georgia College & State University and sign in with a `@bobcats.gcsu.edu` email. Show that a non-GC email is rejected, then enter the 6-digit code.
 3. **Request:** Maxwell Student Union to CVS Pharmacy, paying with Venmo.
 4. **Match:** point out the ride code, the reason this driver was picked, the matching payment method and the status card moving from on the way to here. Send the driver a message.
-5. **Finish:** record Venmo and 5 stars, then open the ride log and watch the payment change to Confirmed.
+5. **Finish:** record Venmo, tap 5 stars and leave a short review, then open the ride log and watch the payment change to Confirmed.
 6. **Drive:** open the Drive tab, save a driver profile, confirm Maya's payment and message her.
 7. **Close:** "Students helping students get to the trips that matter. Next, we put it on Cognito, DynamoDB and Location Service."
 
