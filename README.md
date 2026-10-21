@@ -1,3 +1,4 @@
+<img width="3712" height="1152" alt="Gemini_Generated_Image_akpzl3akpzl3akpz" src="https://github.com/user-attachments/assets/e83342ef-c5b5-4b0d-8e90-af8b4b88ccd9" />
 # GClifts MVP: 
 https://d3exvjki5n2jnm.cloudfront.net
 
