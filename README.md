@@ -92,6 +92,10 @@ The match screen explains why that driver was picked, for example "1 past ride t
 - **Drivers you've ridden with:** number of rides, what you paid with, and what they prefer.
 - **Every ride:** date, trip, driver, payment method, whether the driver confirmed it, rating and review.
 - **Reset my sample rides** restores the sample rides and keeps the rider's own rides.
+
+### 9. Log out
+- **Log out** is in the header on every screen and takes you back to choosing your school.
+- If a ride is in progress, finish or cancel it first.
 - Past drivers are matched first on future rides.
 
 ## Data model

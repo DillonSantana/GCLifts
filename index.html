@@ -22,7 +22,8 @@
   <section class="flex min-w-0 flex-col gap-4">
     <header class="flex flex-wrap items-center justify-between gap-3">
       <img src="images/logo.jpg" width="960" height="298" alt="GClifts, Georgia College rideshare" class="h-14 w-auto rounded-xl sm:h-16">
-      <span class="min-w-0 truncate text-sm text-soft" id="who"></span>
+      <div class="flex min-w-0 items-center gap-3"><span class="min-w-0 truncate text-sm text-soft" id="who"></span>
+        <button type="button" id="logout" hidden class="min-h-11 shrink-0 rounded-lg border-[1.5px] border-rule px-3.5 py-2 text-sm font-bold text-ink hover:border-ink">Log out</button></div>
     </header>
     <nav id="tabs" hidden class="sticky top-0 z-10 -mx-4 flex border-b-[1.5px] border-rule bg-ground px-4 sm:static sm:mx-0 sm:gap-1 sm:px-0">
       <button data-tab="ride" class="-mb-[1.5px] min-h-11 flex-1 border-b-[3px] border-transparent px-3 py-2.5 text-[.95rem] font-bold text-soft hover:text-ink aria-[current=page]:border-route aria-[current=page]:text-ink sm:flex-none">Get a ride</button><button data-tab="drive" class="-mb-[1.5px] min-h-11 flex-1 border-b-[3px] border-transparent px-3 py-2.5 text-[.95rem] font-bold text-soft hover:text-ink aria-[current=page]:border-route aria-[current=page]:text-ink sm:flex-none">Drive</button><button data-tab="log" class="-mb-[1.5px] min-h-11 flex-1 border-b-[3px] border-transparent px-3 py-2.5 text-[.95rem] font-bold text-soft hover:text-ink aria-[current=page]:border-route aria-[current=page]:text-ink sm:flex-none">Ride log</button>
@@ -390,12 +391,18 @@ function render(){
   teardownRide();
   if(S.active&&!drv(S.active.driverId)){S.active=null;save();toast("Your driver is no longer available. Request a new ride.")}
   $("#tabs").hidden=!S.user;
+  $("#logout").hidden=!S.user;
   $("#who").textContent=S.user?(S.user.school?S.user.school+", ":"")+S.user.email:"";
   document.querySelectorAll("#tabs button").forEach(b=>b.setAttribute("aria-current",b.dataset.tab===S.tab?"page":"false"));
   if(!S.user)signin();else({ride:S.active?activeView:rideView,drive:driveView,log:logView})[S.tab]();
 }
 
 let pickedSchool=null,pending=null;
+// Log out from any screen. A ride in progress has to be finished or canceled first so it isn't lost.
+function logout(){
+  if(S.active)return toast("Finish or cancel your ride before you log out.");
+  pickedSchool=null;pending=null;S.user=null;S.tab="ride";save();render();toast("You're logged out");
+}
 function signin(){
   const intro=`<h1 class="${UI.h1}">Rides from classmates, without the group chat.</h1>
     <p class="${UI.lede}">No more chasing a driver in a crowded GroupMe. Every rider and driver is a verified Georgia College student, you're matched with a driver automatically, and drivers confirm when they've been paid.</p>`;
@@ -724,10 +731,9 @@ function logView(){
       <thead><tr><th>Date</th><th>Trip</th><th>Driver</th><th>Payment</th><th>Rating</th></tr></thead><tbody>
       ${log.map(r=>`<tr><td class="whitespace-nowrap tabular-nums">${fmt(r.when)}</td><td>${esc(r.from)} to ${esc(r.to)}${r.review?`<span class="block text-soft [overflow-wrap:anywhere]">"${esc(r.review)}"</span>`:""}</td><td>${esc(name(r))}</td><td>${esc(r.paidWith)} ${paystat(r)}</td><td class="whitespace-nowrap">${stars(r.rating)}</td></tr>`).join("")}
       </tbody></table></div></div>`:""}
-    <div class="flex flex-wrap gap-2.5"><button class="${UI.quiet}" id="reset">Reset my sample rides</button><button class="${UI.quiet}" id="out">Sign out</button></div>
+    <div class="flex flex-wrap gap-2.5"><button class="${UI.quiet}" id="reset">Reset my sample rides</button></div>
   </div>`;
   $("#reset").onclick=()=>{S.active=null;seedRidesFor(S.user.email);save();render();toast("Your sample rides were restored")};
-  $("#out").onclick=()=>{pickedSchool=null;pending=null;S.user=null;S.active=null;S.tab="ride";save();render()};
 }
 
 // Opened from a rider's driver link. Shares this device's location (or a simulated drive) on that ride's channel only.
@@ -792,6 +798,7 @@ function liveDriverView(id){
   addEventListener("pagehide",()=>stop(true));
 }
 
+$("#logout").onclick=logout;
 $("#tabs").onclick=e=>{const b=e.target.closest("button");if(!b)return;S.tab=b.dataset.tab;save();render()};
 if(DRIVE_ID)liveDriverView(DRIVE_ID);else render();
 // Pasting a driver link into an open tab only changes the hash, so reload to switch screens.
