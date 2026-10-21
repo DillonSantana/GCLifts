@@ -7,28 +7,27 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Public+Sans:wght@400;600;700&display=swap">
 <style>
-/* Layout: map of campus + town on the left (sticky on desktop, a strip on phones); the app column on the right.
+/* Layout: a single centered app column.
    The one bold element is the matched ride, shown as a yellow rear-view-mirror parking hang tag. */
 :root{
   --ground:#eef1ec; --panel:#ffffff; --ink:#17211d; --soft:#5d6b65; --rule:#d5dcd6;
-  --permit:#f5c518; --permit-ink:#1c1a10; --route:#0f766e; --road:#c9d2cb; --campus:#dfe9e1; --alert:#b4374f;
+  --permit:#f5c518; --permit-ink:#1c1a10; --route:#0f766e; --campus:#dfe9e1; --alert:#b4374f;
   --display:"Archivo",system-ui,sans-serif; --body:"Public Sans",system-ui,sans-serif;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --ground:#0f1513; --panel:#18201d; --ink:#e7ede9; --soft:#97a69f; --rule:#2a3631;
-  --permit:#f5c518; --permit-ink:#1c1a10; --route:#4fc1b4; --road:#2c3833; --campus:#1b2924; --alert:#f07d93; color-scheme:dark}}
+  --permit:#f5c518; --permit-ink:#1c1a10; --route:#4fc1b4; --campus:#1b2924; --alert:#f07d93; color-scheme:dark}}
 :root[data-theme="dark"]{
   --ground:#0f1513; --panel:#18201d; --ink:#e7ede9; --soft:#97a69f; --rule:#2a3631;
-  --permit:#f5c518; --permit-ink:#1c1a10; --route:#4fc1b4; --road:#2c3833; --campus:#1b2924; --alert:#f07d93; color-scheme:dark}
+  --permit:#f5c518; --permit-ink:#1c1a10; --route:#4fc1b4; --campus:#1b2924; --alert:#f07d93; color-scheme:dark}
 
 [hidden]{display:none!important}
 *,*::before,*::after{box-sizing:border-box}
 body{background:var(--ground);color:var(--ink);font:16px/1.55 var(--body)}
-.shell{max-width:1100px;margin:0 auto;display:grid;gap:20px;
+.shell{max-width:600px;margin:0 auto;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:18px 40px}
-@media (min-width:900px){.shell{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:36px;align-items:start;padding-block:32px 56px}
-  .mapcol{position:sticky;top:24px}}
-.mapcol,.appcol{min-width:0}
+@media (min-width:900px){.shell{padding-block:32px 56px}}
+.appcol{min-width:0}
 
 h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance}
 h1{font-size:clamp(2.1rem,6vw,3.3rem);line-height:.98;font-weight:850;font-stretch:125%;letter-spacing:-.02em}
@@ -112,12 +111,6 @@ button.prof[aria-pressed="true"]{border-color:var(--route);box-shadow:0 0 0 2px 
 .prof .foot{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
 .req{font:700 .85rem var(--body);color:var(--route)}
 
-/* map */
-.map{background:var(--panel);border:1px solid var(--rule);border-radius:16px;overflow:hidden}
-.map svg{display:block;width:100%;height:auto}
-.map .cap{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 16px;border-top:1px solid var(--rule);font-size:.88rem;color:var(--soft)}
-.map .cap b{color:var(--ink);font-variant-numeric:tabular-nums}
-@media (max-width:899px){.mapcol{order:-1}}
 
 /* the hang tag */
 .tag{position:relative;background:var(--permit);color:var(--permit-ink);border-radius:26px 26px 14px 14px;padding:58px 22px 22px;
@@ -174,12 +167,6 @@ th{font-size:.8rem;color:var(--soft);font-weight:600}
 <body>
 
 <div class="shell">
-  <section class="mapcol" aria-label="Map">
-    <div class="map">
-      <svg id="map" viewBox="0 0 360 250" role="img" aria-label="Map of campus and nearby stops"></svg>
-      <div class="cap" id="mapcap"></div>
-    </div>
-  </section>
   <section class="appcol stack">
     <header class="mast">
       <div class="logo"><i aria-hidden="true"></i>GClifts</div>
@@ -206,11 +193,6 @@ const onMap=n=>Object.prototype.hasOwnProperty.call(SPOTS,n);
 const pos=n=>SPOTS[n];
 const norm=t=>String(t).trim().replace(/\s+/g," ");
 const known=t=>Object.keys(SPOTS).find(k=>k.toLowerCase()===norm(t).toLowerCase())||norm(t);
-const LABEL={"CVS Pharmacy":[0,20,"middle"],"Kroger":[0,-11,"middle"],"The Village apts":[0,20,"middle"],"Airport shuttle stop":[4,18,"end"]};
-const ROADS=[["Russell Library","Maxwell Student Union"],["Maxwell Student Union","Student Health Center"],["Russell Library","Student Health Center"],
-  ["Russell Library","The Village apts"],["The Village apts","Walmart Supercenter"],["Maxwell Student Union","Kroger"],["Walmart Supercenter","Kroger"],
-  ["Kroger","CVS Pharmacy"],["CVS Pharmacy","Downtown Milledgeville"],["Student Health Center","Bus Station"],["Bus Station","Downtown Milledgeville"],
-  ["Downtown Milledgeville","Maxwell Student Union"],["CVS Pharmacy","Airport shuttle stop"],["Downtown Milledgeville","Airport shuttle stop"]];
 const seedDrivers=[
   {id:"d1",name:"Jordan Lee",email:"jlee@bobcats.gcsu.edu",car:"Silver Honda Civic",seats:3,pay:["Venmo"],online:true,zone:"Maxwell Student Union"},
   {id:"d2",name:"Aisha Moore",email:"amoore@bobcats.gcsu.edu",car:"Blue Toyota RAV4",seats:4,pay:["PayPal","Venmo"],online:true,zone:"Russell Library"},
@@ -249,57 +231,21 @@ const first=n=>n.split(" ")[0];
 const drv=id=>S.drivers.find(d=>d.id===id);
 // Straight-line distance between demo stops; null when either place is not on the demo map.
 const dist=(a,b)=>{if(!onMap(a)||!onMap(b))return null;const p=pos(a),q=pos(b);return Math.hypot(p[0]-q[0],p[1]-q[1])};
-const miles=(a,b)=>(dist(a,b)/42).toFixed(1);
 function toast(m){const t=$("#toast");t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2400)}
 const opts=sel=>Object.keys(SPOTS).map(s=>`<option${s===sel?" selected":""}>${esc(s)}</option>`).join("");
 const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-/* ---------- map ---------- */
-function curve(a,b){const [x1,y1]=pos(a),[x2,y2]=pos(b);const mx=(x1+x2)/2,my=(y1+y2)/2;const dx=x2-x1,dy=y2-y1;
-  return `M${x1} ${y1} Q${mx-dy*.18} ${my+dx*.18} ${x2} ${y2}`}
-function drawMap(){
-  const a=S.active, from=a?a.from:S.draft.from, to=a?a.to:S.draft.to;
-  const d=a?drv(a.driverId):null;
-  let s=`<rect width="360" height="250" fill="var(--panel)"/>
-  <path d="M60 40 C110 18 240 22 236 74 C232 128 186 140 128 136 C70 132 30 84 60 40Z" fill="var(--campus)"/>
-  <text x="70" y="38" font-family="Archivo, system-ui, sans-serif" font-stretch="125%" font-weight="800" font-size="10" fill="var(--soft)">GC campus, Milledgeville</text>`;
-  s+=ROADS.map(([p,q])=>`<line x1="${SPOTS[p][0]}" y1="${SPOTS[p][1]}" x2="${SPOTS[q][0]}" y2="${SPOTS[q][1]}" stroke="var(--road)" stroke-width="5" stroke-linecap="round"/>`).join("");
-  if(onMap(from)&&onMap(to)&&from!==to)s+=`<path id="rt" d="${curve(from,to)}" fill="none" stroke="var(--route)" stroke-width="4" stroke-linecap="round" ${a?'stroke-dasharray="1 0"':'stroke-dasharray="2 7"'}/>`;
-  if(d&&onMap(from)&&d.zone!==from)s+=`<path id="ap" d="${curve(d.zone,from)}" fill="none" stroke="var(--soft)" stroke-width="2" stroke-dasharray="3 4"/>`;
-  for(const [name,[x,y]] of Object.entries(SPOTS)){
-    const isA=name===from,isB=name===to;
-    const r=isA||isB?7:4;
-    const fill=isB?"var(--permit)":isA?"var(--panel)":"var(--soft)";
-    const stroke=isB?"var(--permit-ink)":isA?"var(--route)":"none";
-    const right=x>250,L=LABEL[name]||[right?-11:11,4,right?"end":"start"];
-    s+=`<circle cx="${x}" cy="${y}" r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="${isA?3:isB?2:0}"/>
-      <text x="${x+L[0]}" y="${y+L[1]}" text-anchor="${L[2]}" font-family="Public Sans, system-ui, sans-serif" font-size="${isA||isB?10.5:9}" font-weight="${isA||isB?700:400}" fill="${isA||isB?"var(--ink)":"var(--soft)"}">${esc(name)}</text>`;
-  }
-  if(!a){S.drivers.filter(x=>x.online&&x.email!==S.user?.email).forEach((x,i)=>{const [cx,cy]=pos(x.zone);
-    s+=`<g transform="translate(${cx+(i%2?-9:9)} ${cy-13})"><rect x="-7" y="-5" width="14" height="10" rx="3" fill="var(--route)"/><title>${esc(x.name)} is online</title></g>`})}
-  else s+=`<g id="car"><rect x="-8" y="-6" width="16" height="12" rx="3.5" fill="var(--ink)"/><rect x="-4" y="-3" width="8" height="5" rx="1" fill="var(--permit)"/></g>`;
-  $("#map").innerHTML=s;
-  const cap=$("#mapcap");
-  if(!from||!to){cap.innerHTML=`<span>Type a pickup and a drop-off to see your route.</span>`}
-  else if(from===to){cap.innerHTML=`<span>Pick two different places.</span>`}
-  else if(dist(from,to)===null){const off=[from,to].filter(n=>!onMap(n));
-    cap.innerHTML=`<span>${off.map(esc).join(" and ")} ${off.length>1?"aren't":"isn't"} on the demo map, so distance and drive time aren't shown.</span>`}
-  else cap.innerHTML=`<span>${esc(from)} to ${esc(to)}</span><span><b>${miles(from,to)} mi</b>, about <b>${Math.max(4,Math.round(dist(from,to)/9))} min</b> drive</span>`;
-  if(a&&d)animateCar(d.zone===from?null:$("#ap"));
-}
+/* ---------- ride status ---------- */
 let raf;
-// Simulated live location: the car drives from the driver's area to the pickup and the status updates as it goes.
-function animateCar(path){
-  cancelAnimationFrame(raf);const car=$("#car");if(!car)return;
-  const a=S.active,d=drv(a.driverId);
-  const at=onMap(a.from)?a.from:d.zone,[px,py]=pos(at);
+// Simulated driver progress: the status card moves from "on the way" to "here" over a few seconds.
+function trackRide(){
+  cancelAnimationFrame(raf);const a=S.active;if(!a||!$("#st"))return;
+  const d=drv(a.driverId);
   const total=onMap(a.from)?dist(d.zone,a.from)/42:null;
   const dur=reduce?0:12000;
   if(!a.startedAt){a.startedAt=Date.now();save()}
   const step=()=>{
     const k=dur?Math.min(1,(Date.now()-a.startedAt)/dur):1;
-    if(path){const e=1-Math.pow(1-k,3),pt=path.getPointAtLength(path.getTotalLength()*e*.94);car.setAttribute("transform",`translate(${pt.x} ${pt.y})`)}
-    else car.setAttribute("transform",`translate(${px} ${py-14})`);
     trip(k,total);
     if(k<1)raf=requestAnimationFrame(step);
   };
@@ -364,7 +310,7 @@ function render(){
   $("#who").textContent=S.user?(S.user.school?S.user.school+", ":"")+S.user.email:"";
   document.querySelectorAll("#tabs button").forEach(b=>b.setAttribute("aria-current",b.dataset.tab===S.tab?"page":"false"));
   if(!S.user)signin();else({ride:S.active?activeView:rideView,drive:driveView,log:logView})[S.tab]();
-  drawMap();
+  trackRide();
 }
 
 let pickedSchool=null,pending=null;
@@ -452,8 +398,8 @@ function rideView(){
         footer:`<span></span><span class="req">${D.prefer===d.id?"Requested":"Request"}</span>`})).join("")}</div></div>`:""}
   </div>`;
   const hint=()=>{const ess=PURPOSE.find(p=>p[0]===S.draft.purpose)[1];$("#phint").textContent=ess?"Essential trip. Drivers hold their last open seat for these.":"Drivers hold their last open seat for essential trips (groceries, pharmacy, clinic, job interview)."};hint();
-  $("#from").oninput=e=>{D.from=known(e.target.value);save();drawMap()};
-  $("#to").oninput=e=>{D.to=known(e.target.value);save();drawMap()};
+  $("#from").oninput=e=>{D.from=known(e.target.value);save()};
+  $("#to").oninput=e=>{D.to=known(e.target.value);save()};
   $("#purpose").onclick=e=>{const c=e.target.closest(".chip");if(!c)return;D.purpose=c.textContent;
     $("#purpose").querySelectorAll(".chip").forEach(x=>x.setAttribute("aria-pressed",x===c));hint();save()};
   $("#pay").onclick=e=>{const c=e.target.closest(".chip");if(!c)return;const on=c.getAttribute("aria-pressed")!=="true";c.setAttribute("aria-pressed",on);
@@ -566,7 +512,7 @@ function driveView(){
     const data={name:S.user.name,email:S.user.email,car,
       seats:Math.max(1,+$("#seats").value||1),pay,online:$("#online").checked,zone:$("#zone").value};
     if(me)Object.assign(me,data);else S.drivers.push({id:"u-"+S.user.email,...data});
-    save();drawMap();toast(data.online?"Driver profile saved. You're available.":"Driver profile saved");
+    save();toast(data.online?"Driver profile saved. You're available.":"Driver profile saved");
   };
 }
 
