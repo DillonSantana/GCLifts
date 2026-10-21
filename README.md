@@ -128,6 +128,8 @@ Write class names out in full (for example `"bg-route"`, not `"bg-" + color`); T
 | `styles/input.css` | Tailwind source: color tokens, dark mode, fonts |
 | `styles/app.css` | Compiled Tailwind output that `index.html` loads (generated; don't edit by hand) |
 | `package.json` | Tailwind CLI and the `build` and `dev` scripts |
+| `images/logo.jpg` | The GClifts logo in the app header (resized from the banner above) |
+| `images/icon.png` | The bobcat emblem, used as the browser tab and home-screen icon |
 | `setup-aws.sh` | AWS CLI and Agent Toolkit setup |
 
 ## AWS architecture (next step)
