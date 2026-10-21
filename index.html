@@ -22,6 +22,7 @@
   --permit:#f5c518; --permit-ink:#1c1a10; --route:#4fc1b4; --road:#2c3833; --campus:#1b2924; --alert:#f07d93; color-scheme:dark}
 
 [hidden]{display:none!important}
+*,*::before,*::after{box-sizing:border-box}
 body{background:var(--ground);color:var(--ink);font:16px/1.55 var(--body)}
 .shell{max-width:1100px;margin:0 auto;display:grid;gap:20px;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:18px 40px}
@@ -142,6 +143,31 @@ th{font-size:.8rem;color:var(--soft);font-weight:600}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--ground);padding:11px 16px;border-radius:10px;font-size:.92rem;font-weight:600;z-index:5}
 .share{display:flex;gap:8px;align-items:stretch}
 .share input{font-size:.85rem}
+/* live trip status */
+.status{display:flex;flex-direction:column;gap:10px}
+.status .now{font:800 1.3rem/1.2 var(--display);font-stretch:108%}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.steps span{height:6px;border-radius:3px;background:var(--rule)}
+.steps span.on{background:var(--route)}
+.steplabels{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;font-size:.78rem;color:var(--soft)}
+.steplabels b{color:var(--ink)}
+/* chat */
+.chat{display:flex;flex-direction:column;gap:8px;max-height:260px;overflow-y:auto;padding:4px 2px}
+.msg{max-width:80%;padding:8px 12px;border-radius:14px;font-size:.92rem;line-height:1.4;overflow-wrap:anywhere}
+.msg.them{align-self:flex-start;background:var(--ground);border:1px solid var(--rule);border-bottom-left-radius:4px}
+.msg.me{align-self:flex-end;background:var(--route);color:var(--panel);border-bottom-right-radius:4px}
+.msg small{display:block;font-size:.72rem;opacity:.75;margin-top:2px}
+.typing{font-size:.82rem;color:var(--soft);min-height:1.2em}
+/* available drivers strip */
+.avail{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:.9rem;color:var(--soft)}
+.avail .faces{display:flex}
+.avail .faces .av{width:30px;height:30px;font-size:.7rem;border:2px solid var(--panel);margin-left:-8px}
+.avail .faces .av:first-child{margin-left:0}
+/* verification code */
+.codebox{font:800 1.6rem var(--display);font-stretch:70%;letter-spacing:.3em;text-align:center}
+.demo{background:var(--campus);border-radius:10px;padding:10px 12px;font-size:.88rem}
+.paystat{font-size:.82rem;font-weight:700}
+.paystat.ok{color:var(--route)} .paystat.wait{color:var(--soft)}
 </style>
 </head>
 <body>
@@ -167,7 +193,7 @@ th{font-size:.8rem;color:var(--soft);font-weight:600}
 <div class="toast" id="toast" role="status" hidden></div>
 
 <script>
-const KEY="gclifts-v6";
+const KEY="gclifts-v7";
 const PAY=["Cash App","Venmo","PayPal"];
 const PURPOSE=[["Groceries",1],["Pharmacy",1],["Clinic",1],["Job interview",1],["Class",0],["Other",0]];
 const SPOTS={
@@ -185,14 +211,14 @@ const ROADS=[["Russell Library","Maxwell Student Union"],["Maxwell Student Union
   ["Kroger","CVS Pharmacy"],["CVS Pharmacy","Downtown Milledgeville"],["Student Health Center","Bus Station"],["Bus Station","Downtown Milledgeville"],
   ["Downtown Milledgeville","Maxwell Student Union"],["CVS Pharmacy","Airport shuttle stop"],["Downtown Milledgeville","Airport shuttle stop"]];
 const seedDrivers=[
-  {id:"d1",name:"Jordan Lee",email:"jlee@bobcats.gcsu.edu",year:"Junior",car:"Silver Honda Civic",seats:3,pay:["Venmo"],online:true,zone:"Maxwell Student Union"},
-  {id:"d2",name:"Aisha Moore",email:"amoore@bobcats.gcsu.edu",year:"Senior",car:"Blue Toyota RAV4",seats:4,pay:["PayPal","Venmo"],online:true,zone:"Russell Library"},
-  {id:"d3",name:"Marcus Diaz",email:"mdiaz@bobcats.gcsu.edu",year:"Sophomore",car:"Black Toyota Corolla",seats:3,pay:["Cash App"],online:true,zone:"The Village apts"},
-  {id:"d4",name:"Priya Shah",email:"pshah@bobcats.gcsu.edu",year:"Senior",car:"White VW Jetta",seats:2,pay:["Venmo","PayPal"],online:false,zone:"Downtown Milledgeville"}];
+  {id:"d1",name:"Jordan Lee",email:"jlee@bobcats.gcsu.edu",car:"Silver Honda Civic",seats:3,pay:["Venmo"],online:true,zone:"Maxwell Student Union"},
+  {id:"d2",name:"Aisha Moore",email:"amoore@bobcats.gcsu.edu",car:"Blue Toyota RAV4",seats:4,pay:["PayPal","Venmo"],online:true,zone:"Russell Library"},
+  {id:"d3",name:"Marcus Diaz",email:"mdiaz@bobcats.gcsu.edu",car:"Black Toyota Corolla",seats:3,pay:["Cash App"],online:true,zone:"The Village apts"},
+  {id:"d4",name:"Priya Shah",email:"pshah@bobcats.gcsu.edu",car:"White VW Jetta",seats:2,pay:["Venmo","PayPal"],online:false,zone:"Downtown Milledgeville"}];
 const seedLog=[
-  {id:"r1",driverId:"d2",from:"Russell Library",to:"Walmart Supercenter",purpose:"Groceries",when:"2026-10-14T16:20",paidWith:"PayPal",rating:5},
-  {id:"r2",driverId:"d1",from:"Maxwell Student Union",to:"Student Health Center",purpose:"Clinic",when:"2026-10-17T09:05",paidWith:"Venmo",rating:5},
-  {id:"r3",driverId:"d2",from:"The Village apts",to:"CVS Pharmacy",purpose:"Pharmacy",when:"2026-10-19T18:40",paidWith:"Venmo",rating:4}];
+  {id:"r1",driverId:"d2",from:"Russell Library",to:"Walmart Supercenter",purpose:"Groceries",when:"2026-10-14T16:20",paidWith:"PayPal",rating:5,confirmed:true},
+  {id:"r2",driverId:"d1",from:"Maxwell Student Union",to:"Student Health Center",purpose:"Clinic",when:"2026-10-17T09:05",paidWith:"Venmo",rating:5,confirmed:true},
+  {id:"r3",driverId:"d2",from:"The Village apts",to:"CVS Pharmacy",purpose:"Pharmacy",when:"2026-10-19T18:40",paidWith:"Venmo",rating:4,confirmed:true}];
 
 let S;
 function fresh(){return{user:null,tab:"ride",drivers:structuredClone(seedDrivers),log:[],seeded:{},
@@ -204,6 +230,10 @@ function seedRidesFor(email){S.log=S.log.filter(r=>r.riderEmail!==email);
 const myLog=()=>S.user?S.log.filter(r=>r.riderEmail===S.user.email).sort((a,b)=>new Date(b.when)-new Date(a.when)):[];
 // One seat is in use while the signed-in rider has an active ride with this driver.
 const openSeats=d=>d.seats-(S.active&&S.active.driverId===d.id?1:0);
+function confirmPending(){if(!S)return;let changed=false;
+  S.log.forEach(r=>{if(!r.confirmed&&r.endedAt&&Date.now()-r.endedAt>3000){r.confirmed=true;changed=true}});
+  if(changed){save();if(S.user&&S.tab==="log"&&!S.active)render()}}
+setInterval(confirmPending,1000);
 const isEssential=p=>!!(PURPOSE.find(x=>x[0]===p)||[])[1];
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 load();
@@ -254,14 +284,33 @@ function drawMap(){
   if(a&&d)animateCar(d.zone===from?null:$("#ap"));
 }
 let raf;
+// Simulated live location: the car drives from the driver's area to the pickup and the status updates as it goes.
 function animateCar(path){
   cancelAnimationFrame(raf);const car=$("#car");if(!car)return;
-  const at=onMap(S.active.from)?S.active.from:drv(S.active.driverId).zone,[px,py]=pos(at);
-  if(!path||reduce){car.setAttribute("transform",`translate(${px} ${py-14})`);return}
-  const L=path.getTotalLength(),t0=performance.now(),dur=4200;
-  const step=t=>{const k=Math.min(1,(t-t0)/dur),e=1-Math.pow(1-k,3);const p=path.getPointAtLength(L*e*.94);
-    car.setAttribute("transform",`translate(${p.x} ${p.y})`);if(k<1)raf=requestAnimationFrame(step)};
-  raf=requestAnimationFrame(step);
+  const a=S.active,d=drv(a.driverId);
+  const at=onMap(a.from)?a.from:d.zone,[px,py]=pos(at);
+  const total=onMap(a.from)?dist(d.zone,a.from)/42:null;
+  const dur=reduce?0:12000;
+  if(!a.startedAt){a.startedAt=Date.now();save()}
+  const step=()=>{
+    const k=dur?Math.min(1,(Date.now()-a.startedAt)/dur):1;
+    if(path){const e=1-Math.pow(1-k,3),pt=path.getPointAtLength(path.getTotalLength()*e*.94);car.setAttribute("transform",`translate(${pt.x} ${pt.y})`)}
+    else car.setAttribute("transform",`translate(${px} ${py-14})`);
+    trip(k,total);
+    if(k<1)raf=requestAnimationFrame(step);
+  };
+  step();
+}
+function trip(k,total){
+  const a=S.active;if(!a)return;const d=drv(a.driverId),n=first(d.name);
+  const stage=k>=1?3:k>.8?2:1;
+  const left=a.eta===null?null:Math.max(0,Math.ceil(a.eta*(1-k)));
+  const now=$("#st"),sub=$("#stsub");if(!now)return;
+  now.textContent=stage===3?`${n} is here. Check the ride code.`:stage===2?`${n} is arriving`:`${n} is on the way`;
+  sub.textContent=stage===3?`Look for a ${d.car}.`:total===null?`Heading to ${a.from}.`:total===0?`Already at ${a.from}.`:`${(total*(1-k)).toFixed(1)} mi away, about ${Math.max(1,left)} min.`;
+  document.querySelectorAll("#steps span").forEach((x,i)=>x.classList.toggle("on",i<=stage));
+  document.querySelectorAll("#steplabels span").forEach((x,i)=>x.innerHTML=i===stage?`<b>${x.textContent}</b>`:x.textContent);
+  const eta=$("#etan");if(eta&&left!==null)eta.textContent=stage===3?"0":left;
 }
 
 /* ---------- matching ---------- */
@@ -289,12 +338,12 @@ function match(){
 
 const AVC=["#0f766e","#7c3aed","#c2410c","#1d4ed8","#be185d","#4d7c0f"];
 const avColor=n=>{let h=0;for(const c of n)h=(h*17+c.charCodeAt(0))>>>0;return AVC[h%AVC.length]};
-const VER=`<span class="ver" title="Signed in with a Georgia College email address"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 6.2l2.3 2.3 4.7-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>GC email</span>`;
+const VER=`<span class="ver" title="School email confirmed with a code"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 6.2l2.3 2.3 4.7-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Verified GC student</span>`;
 function profile(d,{tag="div",attrs="",paid=[],footer=""}={}){
   const rs=myLog().filter(r=>r.driverId===d.id),avg=rs.length?rs.reduce((t,r)=>t+r.rating,0)/rs.length:0;
   return `<${tag} class="prof" ${attrs}>
     <div class="top"><span class="av" style="background:${avColor(d.name)}">${initials(d.name)}<i class="live ${d.online?"on":""}" title="${d.online?"Online now":"Offline"}"></i></span>
-      <div><h3>${esc(d.name)} ${VER}</h3><div class="car">${esc(d.year)}</div><div class="car">${esc(d.car)}</div></div></div>
+      <div><h3>${esc(d.name)} ${VER}</h3><div class="car">${esc(d.car)}</div><div class="car">Usually near ${esc(d.zone)}</div></div></div>
     <div class="stats"><div><b>${rs.length}</b><span>rides together</span></div>
       <div><b>${rs.length?avg.toFixed(1):"New"}${rs.length?' <span class="stars">★</span>':""}</b><span>your rating</span></div>
       <div><b>${openSeats(d)}</b><span>open seats</span></div></div>
@@ -314,10 +363,10 @@ function render(){
   drawMap();
 }
 
-let pickedSchool=null;
+let pickedSchool=null,pending=null;
 function signin(){
-  const intro=`<h1>Rides from classmates, for the trips that matter.</h1>
-    <p class="lede">Groceries, the pharmacy, a clinic visit, a job interview. Every driver and rider signs in with their school email. You settle payment with your driver directly; GClifts keeps the record.</p>`;
+  const intro=`<h1>Rides from classmates, without the group chat.</h1>
+    <p class="lede">No more chasing a driver in a crowded GroupMe. Every rider and driver is a verified Georgia College student, you're matched with a driver automatically, and drivers confirm when they've been paid.</p>`;
   if(pickedSchool===null){
     $("#view").innerHTML=`<div class="stack">${intro}
     <div class="form stack">
@@ -331,14 +380,37 @@ function signin(){
     return;
   }
   const sc=SCHOOLS[pickedSchool];
+  const head=`<div class="person"><span class="face">${esc(sc.short)}</span><div><h3>${esc(sc.name)}</h3><div class="sub">${esc(sc.city)}</div></div>
+        <button type="button" class="quiet" id="change">Change</button></div>`;
+  if(pending){
+    $("#view").innerHTML=`<div class="stack">${intro}
+    <form id="f" class="form stack" novalidate>
+      ${head}
+      <h3>Check your email</h3>
+      <p class="hint">We sent a 6-digit code to <b>${esc(pending.email)}</b>. Enter it to confirm the address is yours.</p>
+      <div class="demo">Demo build: no email is actually sent. Your code is <b>${pending.code}</b>.</div>
+      <label for="code">Verification code<input id="code" class="codebox" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="000000"></label>
+      <p class="err" id="err"></p>
+      <button class="go">Verify email</button>
+      <button type="button" class="quiet" id="back">Use a different email</button>
+    </form></div>`;
+    $("#code").focus();
+    $("#change").onclick=()=>{pickedSchool=null;pending=null;signin()};
+    $("#back").onclick=()=>{pending=null;signin()};
+    $("#f").onsubmit=e=>{e.preventDefault();
+      if($("#code").value.replace(/\D/g,"")!==pending.code)return $("#err").textContent="That code doesn't match. Check the email and try again.";
+      const {name,email}=pending;pending=null;
+      S.user={name,email,school:sc.name};if(!S.seeded[email])seedRidesFor(email);save();render();toast("Email verified");
+    };
+    return;
+  }
   $("#view").innerHTML=`<div class="stack">${intro}
     <form id="f" class="form stack" novalidate>
-      <div class="person"><span class="face">${esc(sc.short)}</span><div><h3>${esc(sc.name)}</h3><div class="sub">${esc(sc.city)}</div></div>
-        <button type="button" class="quiet" id="change">Change</button></div>
+      ${head}
       <label for="email">School email<input id="email" type="email" autocomplete="email" placeholder="first.last@${esc(sc.domains[1]||sc.domains[0])}"></label>
       <label for="name">Your name<input id="name" autocomplete="name" placeholder="First and last name"></label>
       <p class="err" id="err"></p>
-      <button class="go">Verify and continue</button>
+      <button class="go">Send verification code</button>
     </form></div>`;
   $("#email").focus();
   $("#change").onclick=()=>{pickedSchool=null;signin()};
@@ -346,7 +418,7 @@ function signin(){
     const name=$("#name").value.trim(),email=$("#email").value.trim().toLowerCase(),dom=email.split("@")[1]||"";
     if(!/^[^@\s]+@[^@\s]+$/.test(email)||!sc.domains.includes(dom))return $("#err").textContent=`Use your ${sc.name} email. It must end in @${sc.domains.join(" or @")}.`;
     if(!name)return $("#err").textContent="Enter your name so drivers know who to pick up.";
-    S.user={name,email,school:sc.name};if(!S.seeded[email])seedRidesFor(email);save();render();toast("Signed in");
+    pending={name,email,code:String(Math.floor(100000+Math.random()*900000))};signin();
   };
 }
 
@@ -367,12 +439,13 @@ function rideView(){
       <div class="stack tight"><span class="legend">You can pay with</span>
         <div class="chips" id="pay">${PAY.map(p=>`<button type="button" class="chip" aria-pressed="${D.pay.includes(p)}">${p}</button>`).join("")}</div></div>
       <p class="err" id="err"></p>
+      ${(()=>{const on=S.drivers.filter(d=>d.online&&d.email!==S.user.email&&openSeats(d)>0);return on.length?`<div class="avail"><span class="faces">${on.slice(0,5).map(d=>`<span class="av" style="background:${avColor(d.name)}" title="${esc(d.name)}">${initials(d.name)}</span>`).join("")}</span><span>${on.length} driver${on.length>1?"s":""} available to drive now</span></div>`:`<div class="avail">No drivers are available right now.</div>`})()}
       <button class="go" id="go">Find my driver</button>
     </div>
     ${past.length?`<div class="stack tight"><h3>Ride again with someone you know</h3>
       <p class="hint">Tap a driver to ask for them. If they're free, you're matched with them first.</p>
       <div class="profiles" id="again">${past.map(d=>profile(d,{tag:"button",attrs:`type="button" data-id="${d.id}" aria-pressed="${D.prefer===d.id}"`,paid:D.pay,
-        footer:`<span class="sub">Near ${esc(d.zone)}</span><span class="req">${D.prefer===d.id?"Requested":"Request"}</span>`})).join("")}</div></div>`:""}
+        footer:`<span></span><span class="req">${D.prefer===d.id?"Requested":"Request"}</span>`})).join("")}</div></div>`:""}
   </div>`;
   const hint=()=>{const ess=PURPOSE.find(p=>p[0]===S.draft.purpose)[1];$("#phint").textContent=ess?"Essential trip. Drivers hold their last open seat for these.":"Drivers hold their last open seat for essential trips (groceries, pharmacy, clinic, job interview)."};hint();
   $("#from").oninput=e=>{D.from=known(e.target.value);save();drawMap()};
@@ -395,22 +468,39 @@ function rideView(){
   };
 }
 
+const REPLIES=[[/where|which|spot|find/i,"I'll pull up right out front. Look for the {car}."],[/late|minute|wait|hold/i,"No problem, I'll wait a couple of minutes."],
+  [/pay|venmo|paypal|cash ?app/i,"{pay} works for me. Send it after the ride."],[/thank|thx|ty\b/i,"Anytime!"],[/.*/,"Sounds good, see you soon."]];
 function activeView(){
-  const a=S.active,d=drv(a.driverId),ok=d.pay.filter(p=>a.pay.includes(p));
+  const a=S.active,d=drv(a.driverId),ok=d.pay.filter(p=>a.pay.includes(p)),n=first(d.name);
+  if(!a.chat){a.chat=[{who:"them",text:`Hey, it's ${n}. I'm on my way in the ${d.car}.`,t:Date.now()}];save()}
   const shareText=`I'm riding with ${d.name} (${d.car}) from ${a.from} to ${a.to}. Ride code ${a.code}.${a.eta===null?"":` ETA ${a.eta} min.`} Sent from GClifts.`;
+  const tm=t=>new Date(t).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"});
+  const bubbles=()=>a.chat.map(m=>`<div class="msg ${m.who}">${esc(m.text)}<small>${m.who==="me"?"You":esc(n)}, ${tm(m.t)}</small></div>`).join("");
   $("#view").innerHTML=`<div class="stack">
+    <div class="form status" aria-live="polite">
+      <div class="now" id="st">${esc(n)} is on the way</div><div class="sub" id="stsub"></div>
+      <div class="steps" id="steps"><span class="on"></span><span></span><span></span><span></span></div>
+      <div class="steplabels" id="steplabels"><span>Matched</span><span>On the way</span><span>Arriving</span><span>Here</span></div>
+    </div>
     <div class="tag" role="group" aria-label="Your matched ride">
       <div class="issuer"><span>GClifts</span><span>${esc(a.purpose)}</span></div>
       <div class="code">${a.code}</div>
       <div class="codehint">Ask your driver to say this code before you get in.</div>
-      <div class="who"><div><h3>${esc(d.name)}</h3><div>${esc(d.car)}</div><div>${esc(d.year)}</div></div>
-        ${a.eta===null?`<div class="eta"><small>On the way</small></div>`:`<div class="eta">${a.eta}<small>min away</small></div>`}</div>
+      <div class="who"><div><h3>${esc(d.name)}</h3><div>${esc(d.car)}</div></div>
+        ${a.eta===null?`<div class="eta"><small>On the way</small></div>`:`<div class="eta"><span id="etan">${a.eta}</span><small>min away</small></div>`}</div>
       <div class="why">${a.why.length?esc(a.why.join(". "))+".":"Closest driver who's online."}</div>
     </div>
     <div class="form stack">
-      <div class="stack tight"><h3>How ${esc(first(d.name))} likes to be paid</h3>
+      <h3>Message ${esc(n)}</h3>
+      <div class="chat" id="chat">${bubbles()}</div>
+      <div class="typing" id="typing"></div>
+      <form class="share" id="chatf"><input id="chatin" placeholder="Write a message" aria-label="Message ${esc(n)}" autocomplete="off"><button class="quiet">Send</button></form>
+      <p class="hint">Only you and ${esc(n)} can see these messages. In this demo, ${esc(n)}'s replies are automatic.</p>
+    </div>
+    <div class="form stack">
+      <div class="stack tight"><h3>How ${esc(n)} likes to be paid</h3>
         <div class="pays">${d.pay.map(p=>`<span class="pay ${ok.includes(p)?"yes":""}">${esc(p)}</span>`).join("")}</div>
-        <p class="hint">${ok.length?`Highlighted options match what you said you can pay with.`:`None of these match what you picked. Sort it out with ${esc(first(d.name))} before the ride.`} Payment happens between you two, outside the app.</p></div>
+        <p class="hint">${ok.length?`Highlighted options match what you said you can pay with.`:`None of these match what you picked. Sort it out with ${esc(n)} before the ride.`} Payment happens between you two, outside the app. ${esc(n)} confirms in GClifts when it arrives.</p></div>
       <div class="stack tight"><span class="legend">Share your trip</span>
         <div class="share"><input id="sharetxt" readonly value="${esc(shareText)}" aria-label="Trip details to share"><button class="quiet" id="copy">Copy</button></div></div>
     </div>
@@ -418,14 +508,21 @@ function activeView(){
       <h3>When you arrive</h3>
       <div class="row" style="align-items:stretch">
         <label for="paid" style="flex:1;min-width:150px">You paid with<select id="paid">${d.pay.map(p=>`<option${p===ok[0]?" selected":""}>${esc(p)}</option>`).join("")}</select></label>
-        <label for="rate" style="flex:1;min-width:120px">Rating<select id="rate">${[5,4,3,2,1].map(n=>`<option value="${n}">${n} star${n>1?"s":""}</option>`).join("")}</select></label>
+        <label for="rate" style="flex:1;min-width:120px">Rating<select id="rate">${[5,4,3,2,1].map(v=>`<option value="${v}">${v} star${v>1?"s":""}</option>`).join("")}</select></label>
       </div>
       <button class="go" id="done">Finish ride and save to log</button>
       <button class="quiet" id="cancel">Cancel this ride</button>
     </div></div>`;
+  const box=$("#chat");box.scrollTop=box.scrollHeight;
+  $("#chatf").onsubmit=e=>{e.preventDefault();const t=$("#chatin").value.trim();if(!t)return;
+    a.chat.push({who:"me",text:t,t:Date.now()});$("#chatin").value="";save();box.innerHTML=bubbles();box.scrollTop=box.scrollHeight;
+    $("#typing").textContent=`${n} is typing...`;
+    setTimeout(()=>{if(S.active!==a)return;const r=REPLIES.find(([re])=>re.test(t))[1].replace("{car}",d.car).replace("{pay}",ok[0]||d.pay[0]);
+      a.chat.push({who:"them",text:r,t:Date.now()});save();const b=$("#chat");if(!b)return;$("#typing").textContent="";b.innerHTML=bubbles();b.scrollTop=b.scrollHeight},1400)};
   $("#copy").onclick=async()=>{const i=$("#sharetxt");try{await navigator.clipboard.writeText(i.value);toast("Trip details copied")}catch(e){i.select();toast("Selected. Press copy on your keyboard.")}};
-  $("#done").onclick=()=>{S.log.unshift({id:"r"+Date.now(),riderEmail:S.user.email,driverId:d.id,from:a.from,to:a.to,purpose:a.purpose,when:a.when,paidWith:$("#paid").value,rating:+$("#rate").value});
-    S.active=null;S.tab="log";save();render();toast("Ride saved to your log")};
+  $("#done").onclick=()=>{S.log.unshift({id:"r"+Date.now(),riderEmail:S.user.email,driverId:d.id,from:a.from,to:a.to,purpose:a.purpose,when:a.when,
+      paidWith:$("#paid").value,rating:+$("#rate").value,confirmed:false,endedAt:Date.now()});
+    S.active=null;S.tab="log";save();render();toast(`Ride saved. Waiting for ${n} to confirm your payment.`)};
   $("#cancel").onclick=()=>{S.active=null;save();render();toast("Ride canceled")};
 }
 
@@ -434,7 +531,7 @@ function driveView(){
   const essentials=PURPOSE.filter(p=>p[1]).map(p=>p[0]).join(", ").toLowerCase();
   $("#view").innerHTML=`<div class="stack">
     <h2>Drive for classmates</h2>
-    <p class="lede">Riders see how you like to be paid before they're matched with you, and every ride logs how they paid. Your last open seat is held for essential trips (${essentials}).</p>
+    <p class="lede">Riders are matched with you automatically and see how you like to be paid. After each ride you confirm the payment arrived, so you're not chasing anyone in a group chat. Your last open seat is held for essential trips (${essentials}).</p>
     <div class="form stack">
       <label for="online" class="row" style="flex-direction:row;justify-content:space-between"><span>I'm available to drive now</span>
         <input id="online" type="checkbox" style="width:22px;height:22px" ${me?.online?"checked":""}></label>
@@ -442,10 +539,7 @@ function driveView(){
         <label for="car" style="flex:2;min-width:170px">Car<input id="car" value="${esc(me?.car||"")}" placeholder="Color, make and model"></label>
         <label for="seats" style="flex:1;min-width:90px">Open seats<input id="seats" type="number" min="1" max="6" value="${me?.seats||3}"></label>
       </div>
-      <div class="row" style="align-items:stretch">
-        <label for="year" style="flex:1;min-width:120px">Year<select id="year">${["Freshman","Sophomore","Junior","Senior","Grad"].map(y=>`<option${y===me?.year?" selected":""}>${y}</option>`).join("")}</select></label>
-      </div>
-      <label for="zone">You're usually near<select id="zone">${opts(me?.zone||"Maxwell Student Union")}</select></label>
+      <label for="zone">General area<select id="zone">${opts(me?.zone||"Maxwell Student Union")}</select></label>
       <div class="stack tight"><span class="legend">Payment you prefer</span>
         <div class="chips" id="dpay">${PAY.map(p=>`<button type="button" class="chip" aria-pressed="${(me?.pay||["Venmo"]).includes(p)}">${p}</button>`).join("")}</div></div>
       <p class="err" id="err"></p>
@@ -457,7 +551,7 @@ function driveView(){
     const car=$("#car").value.trim();
     if(!car)return $("#err").textContent="Add your car so riders can spot you.";
     if(!pay.length)return $("#err").textContent="Pick at least one way you'd like to be paid.";
-    const data={name:S.user.name,email:S.user.email,year:$("#year").value,car,
+    const data={name:S.user.name,email:S.user.email,car,
       seats:Math.max(1,+$("#seats").value||1),pay,online:$("#online").checked,zone:$("#zone").value};
     if(me)Object.assign(me,data);else S.drivers.push({id:"u-"+S.user.email,...data});
     save();drawMap();toast(data.online?"Driver profile saved. You're available.":"Driver profile saved");
@@ -479,13 +573,13 @@ function logView(){
         return profile(d,{paid,footer:`<span class="sub">Last ride ${new Date(rs[0].when).toLocaleDateString("en-US",{month:"short",day:"numeric"})}. You paid with ${paid.map(esc).join(", ")}.</span>`})}).join("")
         ||`<p class="hint">No rides yet. After your first ride, that driver shows up here and gets matched with you first next time.</p>`}</div></div>
     ${log.length?`<div class="stack tight"><h3>Every ride</h3><div class="scroll"><table>
-      <thead><tr><th>Date</th><th>Trip</th><th>For</th><th>Driver</th><th>Paid with</th><th>Rating</th></tr></thead><tbody>
-      ${log.map(r=>{const d=drv(r.driverId);return `<tr><td class="num">${fmt(r.when)}</td><td>${esc(r.from)} to ${esc(r.to)}</td><td>${esc(r.purpose||"")}</td><td>${esc(d?first(d.name):"")}</td><td>${esc(r.paidWith)}</td><td class="num">${"★".repeat(r.rating)}</td></tr>`}).join("")}
+      <thead><tr><th>Date</th><th>Trip</th><th>For</th><th>Driver</th><th>Payment</th><th>Rating</th></tr></thead><tbody>
+      ${log.map(r=>{const d=drv(r.driverId);return `<tr><td class="num">${fmt(r.when)}</td><td>${esc(r.from)} to ${esc(r.to)}</td><td>${esc(r.purpose||"")}</td><td>${esc(d?first(d.name):"")}</td><td>${esc(r.paidWith)} <span class="paystat ${r.confirmed?"ok":"wait"}">${r.confirmed?"Confirmed":"Waiting for driver"}</span></td><td class="num">${"★".repeat(r.rating)}</td></tr>`}).join("")}
       </tbody></table></div></div>`:""}
     <div class="row"><button class="quiet" id="reset">Reset my sample rides</button><button class="quiet" id="out">Sign out</button></div>
   </div>`;
   $("#reset").onclick=()=>{S.active=null;seedRidesFor(S.user.email);save();render();toast("Your sample rides were restored")};
-  $("#out").onclick=()=>{pickedSchool=null;S.user=null;S.active=null;S.tab="ride";save();render()};
+  $("#out").onclick=()=>{pickedSchool=null;pending=null;S.user=null;S.active=null;S.tab="ride";save();render()};
 }
 
 $("#tabs").onclick=e=>{const b=e.target.closest("button");if(!b)return;S.tab=b.dataset.tab;save();render()};
