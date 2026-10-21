@@ -167,7 +167,7 @@ th{font-size:.8rem;color:var(--soft);font-weight:600}
 <div class="toast" id="toast" role="status" hidden></div>
 
 <script>
-const KEY="gclifts-v5";
+const KEY="gclifts-v6";
 const PAY=["Cash App","Venmo","PayPal"];
 const PURPOSE=[["Groceries",1],["Pharmacy",1],["Clinic",1],["Job interview",1],["Class",0],["Other",0]];
 const SPOTS={
@@ -175,7 +175,8 @@ const SPOTS={
   "The Village apts":[42,168],"Walmart Supercenter":[104,222],"Kroger":[184,188],
   "CVS Pharmacy":[262,196],"Downtown Milledgeville":[296,128],"Bus Station":[310,44],"Airport shuttle stop":[332,226]};
 const SCHOOLS=[{name:"Georgia College & State University",short:"GC",city:"Milledgeville, GA",domains:["gcsu.edu","bobcats.gcsu.edu"]}];
-function pos(n){if(SPOTS[n])return SPOTS[n];let h=0;for(const c of String(n).toLowerCase())h=(h*31+c.charCodeAt(0))>>>0;return[40+h%280,60+(h>>>9)%165]}
+const onMap=n=>Object.prototype.hasOwnProperty.call(SPOTS,n);
+const pos=n=>SPOTS[n];
 const norm=t=>String(t).trim().replace(/\s+/g," ");
 const known=t=>Object.keys(SPOTS).find(k=>k.toLowerCase()===norm(t).toLowerCase())||norm(t);
 const LABEL={"CVS Pharmacy":[0,20,"middle"],"Kroger":[0,-11,"middle"],"The Village apts":[0,20,"middle"],"Airport shuttle stop":[4,18,"end"]};
@@ -194,9 +195,16 @@ const seedLog=[
   {id:"r3",driverId:"d2",from:"The Village apts",to:"CVS Pharmacy",purpose:"Pharmacy",when:"2026-10-19T18:40",paidWith:"Venmo",rating:4}];
 
 let S;
-function fresh(){return{user:null,tab:"ride",drivers:structuredClone(seedDrivers),log:structuredClone(seedLog),
+function fresh(){return{user:null,tab:"ride",drivers:structuredClone(seedDrivers),log:[],seeded:{},
   draft:{from:"Maxwell Student Union",to:"Walmart Supercenter",purpose:"Groceries",pay:["Venmo"],prefer:null},active:null}}
-function load(){try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){} if(!S||!S.draft)S=fresh()}
+function load(){try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){} if(!S||!S.draft)S=fresh(); S.seeded=S.seeded||{}}
+// Each rider gets their own copy of the sample rides the first time they sign in on this browser.
+function seedRidesFor(email){S.log=S.log.filter(r=>r.riderEmail!==email);
+  S.log.push(...seedLog.map(r=>({...r,id:r.id+"-"+email,riderEmail:email,sample:true})));S.seeded[email]=true}
+const myLog=()=>S.user?S.log.filter(r=>r.riderEmail===S.user.email).sort((a,b)=>new Date(b.when)-new Date(a.when)):[];
+// One seat is in use while the signed-in rider has an active ride with this driver.
+const openSeats=d=>d.seats-(S.active&&S.active.driverId===d.id?1:0);
+const isEssential=p=>!!(PURPOSE.find(x=>x[0]===p)||[])[1];
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 load();
 
@@ -205,10 +213,11 @@ const esc=t=>String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",
 const initials=n=>n.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();
 const first=n=>n.split(" ")[0];
 const drv=id=>S.drivers.find(d=>d.id===id);
-const dist=(a,b)=>{const p=pos(a),q=pos(b);return Math.hypot(p[0]-q[0],p[1]-q[1])};
+// Straight-line distance between demo stops; null when either place is not on the demo map.
+const dist=(a,b)=>{if(!onMap(a)||!onMap(b))return null;const p=pos(a),q=pos(b);return Math.hypot(p[0]-q[0],p[1]-q[1])};
 const miles=(a,b)=>(dist(a,b)/42).toFixed(1);
 function toast(m){const t=$("#toast");t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2400)}
-const opts=sel=>Object.keys(SPOTS).map(s=>`<option${s===sel?" selected":""}>${s}</option>`).join("");
+const opts=sel=>Object.keys(SPOTS).map(s=>`<option${s===sel?" selected":""}>${esc(s)}</option>`).join("");
 const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /* ---------- map ---------- */
@@ -221,17 +230,16 @@ function drawMap(){
   <path d="M60 40 C110 18 240 22 236 74 C232 128 186 140 128 136 C70 132 30 84 60 40Z" fill="var(--campus)"/>
   <text x="70" y="38" font-family="Archivo, system-ui, sans-serif" font-stretch="125%" font-weight="800" font-size="10" fill="var(--soft)">GC campus, Milledgeville</text>`;
   s+=ROADS.map(([p,q])=>`<line x1="${SPOTS[p][0]}" y1="${SPOTS[p][1]}" x2="${SPOTS[q][0]}" y2="${SPOTS[q][1]}" stroke="var(--road)" stroke-width="5" stroke-linecap="round"/>`).join("");
-  if(from&&to&&from!==to)s+=`<path id="rt" d="${curve(from,to)}" fill="none" stroke="var(--route)" stroke-width="4" stroke-linecap="round" ${a?'stroke-dasharray="1 0"':'stroke-dasharray="2 7"'}/>`;
-  if(d&&d.zone!==from)s+=`<path id="ap" d="${curve(d.zone,from)}" fill="none" stroke="var(--soft)" stroke-width="2" stroke-dasharray="3 4"/>`;
-  const pts=Object.entries(SPOTS);[from,to].forEach(n=>{if(n&&!SPOTS[n])pts.push([n,pos(n)])});
-  for(const [name,[x,y]] of pts){
+  if(onMap(from)&&onMap(to)&&from!==to)s+=`<path id="rt" d="${curve(from,to)}" fill="none" stroke="var(--route)" stroke-width="4" stroke-linecap="round" ${a?'stroke-dasharray="1 0"':'stroke-dasharray="2 7"'}/>`;
+  if(d&&onMap(from)&&d.zone!==from)s+=`<path id="ap" d="${curve(d.zone,from)}" fill="none" stroke="var(--soft)" stroke-width="2" stroke-dasharray="3 4"/>`;
+  for(const [name,[x,y]] of Object.entries(SPOTS)){
     const isA=name===from,isB=name===to;
     const r=isA||isB?7:4;
     const fill=isB?"var(--permit)":isA?"var(--panel)":"var(--soft)";
     const stroke=isB?"var(--permit-ink)":isA?"var(--route)":"none";
     const right=x>250,L=LABEL[name]||[right?-11:11,4,right?"end":"start"];
     s+=`<circle cx="${x}" cy="${y}" r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="${isA?3:isB?2:0}"/>
-      <text x="${x+L[0]}" y="${y+L[1]}" text-anchor="${L[2]}" font-family="Public Sans, system-ui, sans-serif" font-size="${isA||isB?10.5:9}" font-weight="${isA||isB?700:400}" fill="${isA||isB?"var(--ink)":"var(--soft)"}">${name}</text>`;
+      <text x="${x+L[0]}" y="${y+L[1]}" text-anchor="${L[2]}" font-family="Public Sans, system-ui, sans-serif" font-size="${isA||isB?10.5:9}" font-weight="${isA||isB?700:400}" fill="${isA||isB?"var(--ink)":"var(--soft)"}">${esc(name)}</text>`;
   }
   if(!a){S.drivers.filter(x=>x.online&&x.email!==S.user?.email).forEach((x,i)=>{const [cx,cy]=pos(x.zone);
     s+=`<g transform="translate(${cx+(i%2?-9:9)} ${cy-13})"><rect x="-7" y="-5" width="14" height="10" rx="3" fill="var(--route)"/><title>${esc(x.name)} is online</title></g>`})}
@@ -240,13 +248,15 @@ function drawMap(){
   const cap=$("#mapcap");
   if(!from||!to){cap.innerHTML=`<span>Type a pickup and a drop-off to see your route.</span>`}
   else if(from===to){cap.innerHTML=`<span>Pick two different places.</span>`}
+  else if(dist(from,to)===null){const off=[from,to].filter(n=>!onMap(n));
+    cap.innerHTML=`<span>${off.map(esc).join(" and ")} ${off.length>1?"aren't":"isn't"} on the demo map, so distance and drive time aren't shown.</span>`}
   else cap.innerHTML=`<span>${esc(from)} to ${esc(to)}</span><span><b>${miles(from,to)} mi</b>, about <b>${Math.max(4,Math.round(dist(from,to)/9))} min</b> drive</span>`;
-  if(a)animateCar(d.zone===from?null:$("#ap"));
+  if(a&&d)animateCar(d.zone===from?null:$("#ap"));
 }
 let raf;
 function animateCar(path){
   cancelAnimationFrame(raf);const car=$("#car");if(!car)return;
-  const [px,py]=pos(S.active.from);
+  const at=onMap(S.active.from)?S.active.from:drv(S.active.driverId).zone,[px,py]=pos(at);
   if(!path||reduce){car.setAttribute("transform",`translate(${px} ${py-14})`);return}
   const L=path.getTotalLength(),t0=performance.now(),dur=4200;
   const step=t=>{const k=Math.min(1,(t-t0)/dur),e=1-Math.pow(1-k,3);const p=path.getPointAtLength(L*e*.94);
@@ -256,34 +266,38 @@ function animateCar(path){
 
 /* ---------- matching ---------- */
 function match(){
-  const {from,pay,prefer}=S.draft,me=S.user.email;
-  const cands=S.drivers.filter(d=>d.online&&d.email!==me&&d.seats>0);
-  if(!cands.length)return null;
+  const {from,pay,prefer,purpose}=S.draft,me=S.user.email,ess=isEssential(purpose),log=myLog();
+  const online=S.drivers.filter(d=>d.online&&d.email!==me&&openSeats(d)>0);
+  // Essential trips: drivers hold their last open seat for them. Other trips need at least two open seats.
+  const cands=online.filter(d=>ess||openSeats(d)>=2);
+  if(!cands.length)return online.length?{full:true}:null;
   const scored=cands.map(d=>{
-    const past=S.log.filter(r=>r.driverId===d.id);
+    const past=log.filter(r=>r.driverId===d.id);
+    const km=dist(d.zone,from);
     const avg=past.length?past.reduce((t,r)=>t+r.rating,0)/past.length:0;
     const overlap=d.pay.filter(p=>pay.includes(p));
-    let score=-dist(d.zone,from)/20,why=[];
+    let score=km===null?0:-km/20,why=[];
     if(prefer===d.id){score+=100;why.push(`You asked for ${first(d.name)}`)}
     if(past.length){score+=10+past.length*3+avg;why.push(`${past.length} past ride${past.length>1?"s":""} together, ${avg.toFixed(1)} stars`)}
     if(overlap.length){score+=8;why.push(`Takes ${overlap.join(" or ")}`)}else if(pay.length)score-=6;
     if(d.zone===from)why.push(`Already at ${from}`);
-    return{d,score,why,eta:Math.max(2,Math.round(dist(d.zone,from)/10)+2)};
+    if(ess&&openSeats(d)===1)why.push("Held their last seat for an essential trip");
+    return{d,score,why,eta:km===null?null:Math.max(2,Math.round(km/10)+2)};
   }).sort((x,y)=>y.score-x.score);
   return scored[0];
 }
 
 const AVC=["#0f766e","#7c3aed","#c2410c","#1d4ed8","#be185d","#4d7c0f"];
 const avColor=n=>{let h=0;for(const c of n)h=(h*17+c.charCodeAt(0))>>>0;return AVC[h%AVC.length]};
-const VER=`<span class="ver" title="Verified Georgia College student"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 6.2l2.3 2.3 4.7-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>GC student</span>`;
+const VER=`<span class="ver" title="Signed in with a Georgia College email address"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 6.2l2.3 2.3 4.7-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>GC email</span>`;
 function profile(d,{tag="div",attrs="",paid=[],footer=""}={}){
-  const rs=S.log.filter(r=>r.driverId===d.id),avg=rs.length?rs.reduce((t,r)=>t+r.rating,0)/rs.length:0;
+  const rs=myLog().filter(r=>r.driverId===d.id),avg=rs.length?rs.reduce((t,r)=>t+r.rating,0)/rs.length:0;
   return `<${tag} class="prof" ${attrs}>
     <div class="top"><span class="av" style="background:${avColor(d.name)}">${initials(d.name)}<i class="live ${d.online?"on":""}" title="${d.online?"Online now":"Offline"}"></i></span>
       <div><h3>${esc(d.name)} ${VER}</h3><div class="car">${esc(d.year)}</div><div class="car">${esc(d.car)}</div></div></div>
     <div class="stats"><div><b>${rs.length}</b><span>rides together</span></div>
       <div><b>${rs.length?avg.toFixed(1):"New"}${rs.length?' <span class="stars">★</span>':""}</b><span>your rating</span></div>
-      <div><b>${d.seats}</b><span>open seats</span></div></div>
+      <div><b>${openSeats(d)}</b><span>open seats</span></div></div>
     <div class="pays">${d.pay.map(p=>`<span class="pay ${paid.includes(p)?"yes":""}">${esc(p)}</span>`).join("")}</div>
     ${footer?`<div class="foot">${footer}</div>`:""}
   </${tag}>`;
@@ -292,6 +306,7 @@ const code=()=>"GC-"+String(Math.floor(1000+Math.random()*9000));
 
 /* ---------- views ---------- */
 function render(){
+  if(S.active&&!drv(S.active.driverId)){S.active=null;save();toast("Your driver is no longer available. Request a new ride.")}
   $("#tabs").hidden=!S.user;
   $("#who").textContent=S.user?(S.user.school?S.user.school+", ":"")+S.user.email:"";
   document.querySelectorAll("#tabs button").forEach(b=>b.setAttribute("aria-current",b.dataset.tab===S.tab?"page":"false"));
@@ -302,7 +317,7 @@ function render(){
 let pickedSchool=null;
 function signin(){
   const intro=`<h1>Rides from classmates, for the trips that matter.</h1>
-    <p class="lede">Groceries, the pharmacy, a clinic visit, a job interview. Every driver and rider is a verified student at your school. You settle payment with your driver directly; GClifts keeps the record.</p>`;
+    <p class="lede">Groceries, the pharmacy, a clinic visit, a job interview. Every driver and rider signs in with their school email. You settle payment with your driver directly; GClifts keeps the record.</p>`;
   if(pickedSchool===null){
     $("#view").innerHTML=`<div class="stack">${intro}
     <div class="form stack">
@@ -331,13 +346,13 @@ function signin(){
     const name=$("#name").value.trim(),email=$("#email").value.trim().toLowerCase(),dom=email.split("@")[1]||"";
     if(!/^[^@\s]+@[^@\s]+$/.test(email)||!sc.domains.includes(dom))return $("#err").textContent=`Use your ${sc.name} email. It must end in @${sc.domains.join(" or @")}.`;
     if(!name)return $("#err").textContent="Enter your name so drivers know who to pick up.";
-    S.user={name,email,school:sc.name};save();render();toast("You're verified");
+    S.user={name,email,school:sc.name};if(!S.seeded[email])seedRidesFor(email);save();render();toast("Signed in");
   };
 }
 
 function rideView(){
   const D=S.draft;
-  const past=[...new Set(S.log.map(r=>r.driverId))].map(drv).filter(d=>d&&d.online&&d.email!==S.user.email);
+  const past=[...new Set(myLog().map(r=>r.driverId))].map(drv).filter(d=>d&&d.online&&d.email!==S.user.email);
   $("#view").innerHTML=`<div class="stack">
     <h2>Where are you headed?</h2>
     <div class="form stack">
@@ -359,7 +374,7 @@ function rideView(){
       <div class="profiles" id="again">${past.map(d=>profile(d,{tag:"button",attrs:`type="button" data-id="${d.id}" aria-pressed="${D.prefer===d.id}"`,paid:D.pay,
         footer:`<span class="sub">Near ${esc(d.zone)}</span><span class="req">${D.prefer===d.id?"Requested":"Request"}</span>`})).join("")}</div></div>`:""}
   </div>`;
-  const hint=()=>{const ess=PURPOSE.find(p=>p[0]===S.draft.purpose)[1];$("#phint").textContent=ess?"Essential trip. Drivers see these first.":"Drivers see essential trips first, then the rest."};hint();
+  const hint=()=>{const ess=PURPOSE.find(p=>p[0]===S.draft.purpose)[1];$("#phint").textContent=ess?"Essential trip. Drivers hold their last open seat for these.":"Drivers hold their last open seat for essential trips (groceries, pharmacy, clinic, job interview)."};hint();
   $("#from").oninput=e=>{D.from=known(e.target.value);save();drawMap()};
   $("#to").oninput=e=>{D.to=known(e.target.value);save();drawMap()};
   $("#purpose").onclick=e=>{const c=e.target.closest(".chip");if(!c)return;D.purpose=c.textContent;
@@ -374,21 +389,22 @@ function rideView(){
     if(!D.pay.length)return $("#err").textContent="Choose at least one way you can pay.";
     const m=match();
     if(!m)return $("#err").textContent="No drivers are online right now. Try again in a few minutes.";
-    S.active={driverId:m.d.id,from:D.from,to:D.to,purpose:D.purpose,why:m.why,eta:m.eta,pay:[...D.pay],code:code(),when:new Date().toISOString().slice(0,16)};
+    if(m.full)return $("#err").textContent="Every online driver has one seat left, and it's held for essential trips. Try again soon, or pick an essential trip type if that's what this is.";
+    S.active={driverId:m.d.id,from:D.from,to:D.to,purpose:D.purpose,why:m.why,eta:m.eta,pay:[...D.pay],code:code(),when:new Date().toISOString()};
     D.prefer=null;save();render();toast(`Matched with ${first(m.d.name)}`);
   };
 }
 
 function activeView(){
   const a=S.active,d=drv(a.driverId),ok=d.pay.filter(p=>a.pay.includes(p));
-  const shareText=`I'm riding with ${d.name} (${d.car}) from ${a.from} to ${a.to}. Ride code ${a.code}. ETA ${a.eta} min. Sent from GClifts.`;
+  const shareText=`I'm riding with ${d.name} (${d.car}) from ${a.from} to ${a.to}. Ride code ${a.code}.${a.eta===null?"":` ETA ${a.eta} min.`} Sent from GClifts.`;
   $("#view").innerHTML=`<div class="stack">
     <div class="tag" role="group" aria-label="Your matched ride">
       <div class="issuer"><span>GClifts</span><span>${esc(a.purpose)}</span></div>
       <div class="code">${a.code}</div>
       <div class="codehint">Ask your driver to say this code before you get in.</div>
       <div class="who"><div><h3>${esc(d.name)}</h3><div>${esc(d.car)}</div><div>${esc(d.year)}</div></div>
-        <div class="eta">${a.eta}<small>min away</small></div></div>
+        ${a.eta===null?`<div class="eta"><small>On the way</small></div>`:`<div class="eta">${a.eta}<small>min away</small></div>`}</div>
       <div class="why">${a.why.length?esc(a.why.join(". "))+".":"Closest driver who's online."}</div>
     </div>
     <div class="form stack">
@@ -408,7 +424,7 @@ function activeView(){
       <button class="quiet" id="cancel">Cancel this ride</button>
     </div></div>`;
   $("#copy").onclick=async()=>{const i=$("#sharetxt");try{await navigator.clipboard.writeText(i.value);toast("Trip details copied")}catch(e){i.select();toast("Selected. Press copy on your keyboard.")}};
-  $("#done").onclick=()=>{S.log.unshift({id:"r"+Date.now(),driverId:d.id,from:a.from,to:a.to,purpose:a.purpose,when:a.when,paidWith:$("#paid").value,rating:+$("#rate").value});
+  $("#done").onclick=()=>{S.log.unshift({id:"r"+Date.now(),riderEmail:S.user.email,driverId:d.id,from:a.from,to:a.to,purpose:a.purpose,when:a.when,paidWith:$("#paid").value,rating:+$("#rate").value});
     S.active=null;S.tab="log";save();render();toast("Ride saved to your log")};
   $("#cancel").onclick=()=>{S.active=null;save();render();toast("Ride canceled")};
 }
@@ -418,7 +434,7 @@ function driveView(){
   const essentials=PURPOSE.filter(p=>p[1]).map(p=>p[0]).join(", ").toLowerCase();
   $("#view").innerHTML=`<div class="stack">
     <h2>Drive for classmates</h2>
-    <p class="lede">Riders see how you like to be paid before they're matched with you, and every ride logs how they paid. Essential trips (${essentials}) reach you first.</p>
+    <p class="lede">Riders see how you like to be paid before they're matched with you, and every ride logs how they paid. Your last open seat is held for essential trips (${essentials}).</p>
     <div class="form stack">
       <label for="online" class="row" style="flex-direction:row;justify-content:space-between"><span>I'm available to drive now</span>
         <input id="online" type="checkbox" style="width:22px;height:22px" ${me?.online?"checked":""}></label>
@@ -443,31 +459,32 @@ function driveView(){
     if(!pay.length)return $("#err").textContent="Pick at least one way you'd like to be paid.";
     const data={name:S.user.name,email:S.user.email,year:$("#year").value,car,
       seats:Math.max(1,+$("#seats").value||1),pay,online:$("#online").checked,zone:$("#zone").value};
-    if(me)Object.assign(me,data);else S.drivers.push({id:"me",...data});
+    if(me)Object.assign(me,data);else S.drivers.push({id:"u-"+S.user.email,...data});
     save();drawMap();toast(data.online?"Driver profile saved. You're available.":"Driver profile saved");
   };
 }
 
 function logView(){
-  const by={};S.log.forEach(r=>(by[r.driverId]=by[r.driverId]||[]).push(r));
+  const log=myLog();
+  const by={};log.forEach(r=>(by[r.driverId]=by[r.driverId]||[]).push(r));
   const people=Object.entries(by).sort((a,b)=>b[1].length-a[1].length);
-  const payCount={};S.log.forEach(r=>payCount[r.paidWith]=(payCount[r.paidWith]||0)+1);
+  const payCount={};log.forEach(r=>payCount[r.paidWith]=(payCount[r.paidWith]||0)+1);
   const topPay=Object.entries(payCount).sort((a,b)=>b[1]-a[1])[0];
   const fmt=w=>new Date(w).toLocaleDateString("en-US",{month:"short",day:"numeric"});
   $("#view").innerHTML=`<div class="stack">
     <h2>Ride log</h2>
-    ${S.log.length?`<p class="summary">${S.log.length} ride${S.log.length>1?"s":""} with ${people.length} driver${people.length>1?"s":""}. You pay with ${esc(topPay[0])} most often.</p>`:""}
+    ${log.length?`<p class="summary">${log.length} ride${log.length>1?"s":""} with ${people.length} driver${people.length>1?"s":""}. You pay with ${esc(topPay[0])} most often.</p>`:""}
     <div class="stack tight"><h3>Drivers you've ridden with</h3>
       <div class="profiles">${people.map(([id,rs])=>{const d=drv(id);if(!d)return"";const paid=[...new Set(rs.map(r=>r.paidWith))];
         return profile(d,{paid,footer:`<span class="sub">Last ride ${new Date(rs[0].when).toLocaleDateString("en-US",{month:"short",day:"numeric"})}. You paid with ${paid.map(esc).join(", ")}.</span>`})}).join("")
         ||`<p class="hint">No rides yet. After your first ride, that driver shows up here and gets matched with you first next time.</p>`}</div></div>
-    ${S.log.length?`<div class="stack tight"><h3>Every ride</h3><div class="scroll"><table>
+    ${log.length?`<div class="stack tight"><h3>Every ride</h3><div class="scroll"><table>
       <thead><tr><th>Date</th><th>Trip</th><th>For</th><th>Driver</th><th>Paid with</th><th>Rating</th></tr></thead><tbody>
-      ${S.log.map(r=>{const d=drv(r.driverId);return `<tr><td class="num">${fmt(r.when)}</td><td>${esc(r.from)} to ${esc(r.to)}</td><td>${esc(r.purpose||"")}</td><td>${esc(d?first(d.name):"")}</td><td>${esc(r.paidWith)}</td><td class="num">${"★".repeat(r.rating)}</td></tr>`}).join("")}
+      ${log.map(r=>{const d=drv(r.driverId);return `<tr><td class="num">${fmt(r.when)}</td><td>${esc(r.from)} to ${esc(r.to)}</td><td>${esc(r.purpose||"")}</td><td>${esc(d?first(d.name):"")}</td><td>${esc(r.paidWith)}</td><td class="num">${"★".repeat(r.rating)}</td></tr>`}).join("")}
       </tbody></table></div></div>`:""}
-    <div class="row"><button class="quiet" id="reset">Reset sample data</button><button class="quiet" id="out">Sign out</button></div>
+    <div class="row"><button class="quiet" id="reset">Reset my sample rides</button><button class="quiet" id="out">Sign out</button></div>
   </div>`;
-  $("#reset").onclick=()=>{const u=S.user;S=fresh();S.user=u;S.tab="log";save();render();toast("Sample data restored")};
+  $("#reset").onclick=()=>{S.active=null;seedRidesFor(S.user.email);save();render();toast("Your sample rides were restored")};
   $("#out").onclick=()=>{pickedSchool=null;S.user=null;S.active=null;S.tab="ride";save();render()};
 }
 

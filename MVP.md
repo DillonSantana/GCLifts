@@ -1,6 +1,6 @@
 # GClifts MVP
 
-A students-only ride-share for Georgia College & State University. Students without cars get rides from verified classmates to the places that matter: groceries, the pharmacy, the clinic, a job interview.
+A students-only ride-share for Georgia College & State University. Students without cars get rides from classmates who sign in with their school email to the places that matter: groceries, the pharmacy, the clinic, a job interview.
 
 **Track:** Community & Wellbeing (AWS for Social Good)
 
@@ -18,25 +18,26 @@ Many GC students don't have a car. Milledgeville has limited public transit, and
 ### 1. Connect to your school
 - The student picks their school first. For the demo, the only option is **Georgia College & State University**.
 - Then they enter their school email. Only `@gcsu.edu` and `@bobcats.gcsu.edu` addresses are accepted.
-- Every user is a verified student, and students are only matched with people from their own school.
+- Every user signs in with a school email, and students are only matched with people from their own school.
+- The demo only checks the email's domain. Real verification (a sign-in code sent to that address) comes with Cognito.
 
 ### 2. Request a ride
-- The rider types a pickup and drop-off as free text. Known campus and town stops appear on the map.
+- The rider types a pickup and drop-off as free text. Known campus and town stops appear on the map with a distance and drive time. Other places are accepted, but the demo shows no distance or drive time for them until Location Service is connected.
 - They pick the trip's purpose: Groceries, Pharmacy, Clinic, Job interview, Class, or Other.
-  - Groceries, Pharmacy, Clinic and Job interview count as **essential trips**, and drivers see them first.
+  - Groceries, Pharmacy, Clinic and Job interview count as **essential trips**. Drivers hold their last open seat for them: other trips are only matched with drivers who have at least two open seats.
 - They pick how they can pay: **Cash App, Venmo or PayPal**.
 - Optionally, they can request a driver they've ridden with before.
 - **Find my driver** matches them with a driver automatically.
 
 ### 3. Automatic matching
-Each online driver with an open seat gets a score. The highest score wins:
+Online drivers with an open seat are eligible (at least two open seats for non-essential trips). Each eligible driver gets a score, and the highest score wins:
 
 | Factor | Effect |
 |---|---|
 | Rider requested this driver | Strong boost |
 | Past rides together | Boost, more for each ride and for a higher average rating |
 | Driver accepts one of the rider's payment methods | Boost; a driver with no matching method is ranked lower |
-| Driver is close to the pickup | Small boost, decreasing with distance |
+| Driver is close to the pickup | Small boost, decreasing with distance (skipped when the pickup isn't on the demo map) |
 
 The match screen explains why that driver was picked, for example "1 past ride together, 5.0 stars. Takes Venmo."
 
@@ -78,7 +79,8 @@ Russell Library, Maxwell Student Union, Student Health Center, The Village apts,
 ## Current build
 
 - A single file, `index.html`, with plain HTML, CSS and JavaScript and no backend.
-- Data is saved in the browser and starts with sample drivers and rides. **Reset sample data** in the Ride log tab restores them.
+- Data is saved in the browser and starts with sample drivers. Each rider who signs in gets their own copy of three sample rides, and their ride log and ratings are kept separate from anyone else using the same browser. **Reset my sample rides** in the Ride log tab restores them.
+- While a ride is active, it uses one of the driver's open seats.
 - Tested at laptop and phone widths, in light and dark mode.
 
 ## AWS architecture (next step)
@@ -113,7 +115,7 @@ Region: the project is in `us-east-2`; the Agent Toolkit runs in `us-east-1`.
 ## Judging fit
 
 - **Completion:** every step from sign-in through matching, the ride and the ride log works.
-- **Originality:** limited to one school, essential trips come first, and the hang-tag ride code.
+- **Originality:** limited to one school, essential trips get the last open seat, and the hang-tag ride code.
 - **Design:** map-first layout, works on phones, light and dark mode.
 - **Technical:** scored matching that uses ride history, payment compatibility and distance.
 - **Social good:** access to food, medicine, healthcare and jobs for students without cars.
