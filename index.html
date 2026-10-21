@@ -316,17 +316,19 @@ const stars=n=>`<span class="text-[#c99400]" role="img" aria-label="${n} of 5 st
 // Native radios keep arrow-key and screen-reader support; the stars are their labels.
 function starPicker(n){
   return `<fieldset class="flex flex-col gap-1.5" id="stars"><legend class="${UI.legend}">Rate your ride with ${esc(n)}</legend>
-    <div class="flex items-center gap-1">${[1,2,3,4,5].map(v=>`<label class="cursor-pointer"><input type="radio" name="rate" value="${v}" class="peer sr-only" aria-label="${v} star${v>1?"s":""}, ${STAR_WORDS[v]}">
+    <div class="flex flex-wrap items-center gap-1">${[1,2,3,4,5].map(v=>`<label class="cursor-pointer"><input type="radio" name="rate" value="${v}" class="peer sr-only" aria-label="${v} star${v>1?"s":""}, ${STAR_WORDS[v]}">
       <span aria-hidden="true" class="grid size-11 place-items-center rounded-lg text-[2rem] leading-none text-soft peer-focus-visible:outline-[3px] peer-focus-visible:outline-route data-[on]:text-[#c99400]">☆</span></label>`).join("")}
       <span class="ml-2 text-sm font-bold" id="starword"></span></div></fieldset>`;
 }
-function wireStars(){
+// The pick lives on the active ride so switching tabs and back doesn't lose it.
+function wireStars(a){
   const box=$("#stars"),marks=[...box.querySelectorAll("span[aria-hidden]")];
   const show=v=>{marks.forEach((m,i)=>{const on=i<v;m.toggleAttribute("data-on",on);m.textContent=on?"★":"☆"});$("#starword").textContent=STAR_WORDS[v]};
   const picked=()=>+(box.querySelector("input:checked")?.value||0);
-  box.onchange=()=>{show(picked());$("#doneErr").textContent=""};
+  box.onchange=()=>{a.rating=picked();save();show(a.rating);$("#doneErr").textContent=""};
   box.onmouseover=e=>{const i=e.target.closest("label")?.querySelector("input");if(i)show(+i.value)};
   box.onmouseleave=()=>show(picked());
+  if(a.rating){box.querySelector(`input[value="${a.rating}"]`).checked=true;show(a.rating)}
 }
 function activeView(){
   const a=S.active,d=drv(a.driverId),ok=d.pay.filter(p=>a.pay.includes(p)),n=first(d.name);
@@ -364,7 +366,7 @@ function activeView(){
       <h3 class="${UI.h3}">When you arrive</h3>
       <label for="paid" class="${UI.label}">You paid with<select id="paid" class="${UI.input}">${d.pay.map(p=>`<option${p===ok[0]?" selected":""}>${esc(p)}</option>`).join("")}</select></label>
       ${starPicker(n)}
-      <label for="review" class="${UI.label}"><span>Leave a review <span class="font-normal text-soft">(optional)</span></span><textarea id="review" rows="3" maxlength="280" class="${UI.input} resize-y" placeholder="What stood out about the ride?"></textarea></label>
+      <label for="review" class="${UI.label}"><span>Leave a review <span class="font-normal text-soft">(optional)</span></span><textarea id="review" rows="3" maxlength="280" class="${UI.input} resize-y" placeholder="What stood out about the ride?">${esc(a.review||"")}</textarea></label>
       <p class="${UI.err}" id="doneErr"></p>
       <button class="${UI.go}" id="done">Finish ride and save to log</button>
       <button class="${UI.quiet}" id="cancel">Cancel this ride</button>
@@ -377,7 +379,8 @@ function activeView(){
     setTimeout(()=>{if(S.active!==a)return;const r=REPLIES.find(([re])=>re.test(t))[1].replace("{car}",d.car).replace("{pay}",ok[0]||d.pay[0]);
       a.chat.push({who:"them",text:r,t:Date.now()});save();const b=$("#chat");if(!b)return;$("#typing").textContent="";b.innerHTML=bubbles();b.scrollTop=b.scrollHeight},1400)};
   $("#copy").onclick=async()=>{const i=$("#sharetxt");try{await navigator.clipboard.writeText(i.value);toast("Trip details copied")}catch(e){i.select();toast("Selected. Press copy on your keyboard.")}};
-  wireStars();
+  wireStars(a);
+  $("#review").oninput=e=>{a.review=e.target.value;save()};
   $("#done").onclick=()=>{const rating=+(document.querySelector("#stars input:checked")?.value||0);
     if(!rating)return $("#doneErr").textContent=`Tap a star to rate your ride with ${n}.`;
     S.log.unshift({id:"r"+Date.now(),riderEmail:S.user.email,driverId:d.id,from:a.from,to:a.to,when:a.when,
