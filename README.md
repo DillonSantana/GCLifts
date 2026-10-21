@@ -15,7 +15,12 @@ Milledgeville has limited public transit, and no rideshare apps are available. S
 - **Riders:** matched with a driver automatically, and every driver is a verified student.
 - **Drivers:** matched with riders automatically, and they confirm in the app when each rider's payment arrives. Riders and drivers can message each other.
 
-## What the MVP does
+Visitor ──HTTPS──▶ CloudFront (edge cache, global)
+                        │  signed request (Origin Access Control)
+                        ▼
+                   S3 bucket (private, us-east-2)
+                     ├── index.html
+                     └── styles/app.css
 
 ### 1. Connect to your school
 - The student picks their school first. For the demo, the only option is **Georgia College & State University**.
