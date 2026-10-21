@@ -38,14 +38,6 @@ Each online driver with an open seat gets a score. The highest score wins:
 
 The match screen explains why that driver was picked, for example "1 past ride together, 5.0 stars. Takes Venmo."
 
-### 4. Matched ride: the hang tag
-- the rider gets an Uber-style match with the location of the driver on their way there
-- puts the writer and driver in a direct message chat 
-- A yellow parking-permit-style tag shows a **ride code** (for example, `GC-2529`). The driver says the code before the rider gets in, so the rider knows it's the right car.
-- It shows the driver's name, car, plus an ETA.
-- It shows the driver's payment preferences, highlighting the ones that match the rider's.
-- **Share your trip** copies the driver, car, route and ride code so the rider can send them to a friend.
-
 ### 5. Payment (outside the app)
 - Money moves directly between the rider and driver in Cash App, Venmo or PayPal.
 - GClifts **only records** which method was used. This keeps the app out of payment processing and liability.
