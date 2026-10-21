@@ -79,6 +79,7 @@ The match screen explains why that driver was picked, for example "1 past ride t
 ### 7. Drive
 - A driver sets whether they're available now, their car, open seats, general area, and which payment methods they prefer.
 - **Your riders** lists each rider they've driven, with the trip, how the rider paid, and the rider's stars and review. The driver taps **Confirm payment received** when the money shows up, and can message each rider.
+- A driver can **report a rider** from the rider's card: Didn't pay, Too loud, Threw up or Other, with an optional note (required for Other). Riders don't see reports. In the demo, a report is saved with the ride; in production it would go to GClifts for review.
 - A new driver starts with two sample riders, one of whom is waiting for a payment confirmation, so the demo shows this right away.
 
 ### 8. Ride log
@@ -94,7 +95,7 @@ The match screen explains why that driver was picked, for example "1 past ride t
 |---|---|
 | **Users** | email (key), name, school |
 | **Drivers** | id, email, car, seats, zone, pay[], online |
-| **Rides** | id, riderEmail, riderName, driverId, from, to, when, paidWith, confirmed, rating, review, code, chat[] |
+| **Rides** | id, riderEmail, riderName, driverId, from, to, when, paidWith, confirmed, rating, review, report, code, chat[] |
 
 ## Demo stops (Milledgeville)
 
