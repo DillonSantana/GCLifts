@@ -5,25 +5,27 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>GClifts</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Public+Sans:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap">
 <style>
 /* Layout: a single centered app column.
-   The one bold element is the matched ride, shown as a yellow rear-view-mirror parking hang tag. */
+   The one bold element is the matched ride, shown as a yellow rear-view-mirror parking hang tag.
+   Palette is Georgia College navy and green plus permit yellow. One family, Archivo, does all the type:
+   wide for headings, normal for reading, condensed for codes and numbers, like campus road signage. */
 :root{
-  --ground:#eef1ec; --panel:#ffffff; --ink:#17211d; --soft:#5d6b65; --rule:#d5dcd6;
-  --permit:#f5c518; --permit-ink:#1c1a10; --route:#0f766e; --campus:#dfe9e1; --alert:#b4374f;
-  --display:"Archivo",system-ui,sans-serif; --body:"Public Sans",system-ui,sans-serif;
+  --ground:#eef0f4; --panel:#ffffff; --ink:#14213d; --soft:#56607a; --rule:#d3d8e2;
+  --permit:#f5c518; --permit-ink:#1c1a10; --route:#1e6b47; --campus:#e1ece5; --alert:#b4233c;
+  --display:"Archivo",system-ui,sans-serif; --body:"Archivo",system-ui,sans-serif;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --ground:#0f1513; --panel:#18201d; --ink:#e7ede9; --soft:#97a69f; --rule:#2a3631;
-  --permit:#f5c518; --permit-ink:#1c1a10; --route:#4fc1b4; --campus:#1b2924; --alert:#f07d93; color-scheme:dark}}
+  --ground:#0e1526; --panel:#162038; --ink:#e8ecf4; --soft:#9aa5bd; --rule:#29355a;
+  --permit:#f5c518; --permit-ink:#1c1a10; --route:#5cc493; --campus:#173326; --alert:#f48a9c; color-scheme:dark}}
 :root[data-theme="dark"]{
-  --ground:#0f1513; --panel:#18201d; --ink:#e7ede9; --soft:#97a69f; --rule:#2a3631;
-  --permit:#f5c518; --permit-ink:#1c1a10; --route:#4fc1b4; --campus:#1b2924; --alert:#f07d93; color-scheme:dark}
+  --ground:#0e1526; --panel:#162038; --ink:#e8ecf4; --soft:#9aa5bd; --rule:#29355a;
+  --permit:#f5c518; --permit-ink:#1c1a10; --route:#5cc493; --campus:#173326; --alert:#f48a9c; color-scheme:dark}
 
 [hidden]{display:none!important}
 *,*::before,*::after{box-sizing:border-box}
-body{background:var(--ground);color:var(--ink);font:16px/1.55 var(--body)}
+body{margin:0;background:var(--ground);color:var(--ink);font:16px/1.55 var(--body)}
 .shell{max-width:600px;margin:0 auto;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:18px 40px}
 @media (min-width:900px){.shell{padding-block:32px 56px}}
@@ -52,10 +54,11 @@ nav.tabs button[aria-current="page"]{color:var(--ink);border-bottom-color:var(--
 
 /* controls */
 label{font-weight:700;font-size:.88rem;display:flex;flex-direction:column;gap:6px}
-input,select{font:inherit;font-weight:400;color:var(--ink);background:var(--panel);border:1.5px solid var(--rule);border-radius:8px;padding:11px 12px;width:100%}
+input,select{font:inherit;font-weight:400;color:var(--ink);background:var(--panel);border:1.5px solid var(--rule);border-radius:6px;padding:11px 12px;width:100%}
+input:hover,select:hover{border-color:var(--soft)}
 :focus-visible{outline:3px solid var(--route);outline-offset:2px}
 button{font:700 1rem var(--body);cursor:pointer}
-.go{background:var(--ink);color:var(--ground);border:0;border-radius:10px;padding:15px 18px;width:100%;font-size:1.05rem}
+.go{background:var(--ink);color:var(--ground);border:0;border-radius:8px;padding:15px 18px;width:100%;font-size:1.05rem;font-stretch:112%}
 .go:hover{background:var(--route)}
 .quiet{background:none;border:1.5px solid var(--rule);color:var(--ink);border-radius:8px;padding:9px 13px;font-size:.9rem}
 .quiet:hover{border-color:var(--ink)}
@@ -70,7 +73,10 @@ button{font:700 1rem var(--body);cursor:pointer}
 .trip .a{border:3px solid var(--route);background:var(--panel)}
 .trip .b{background:var(--permit);box-shadow:0 0 0 2px var(--permit-ink) inset}
 .trip .line{width:2px;height:14px;background:var(--rule);justify-self:center}
-.form{background:var(--panel);border:1px solid var(--rule);border-radius:14px;padding:18px}
+/* Sections sit on the page, divided by a rule; only things you pick up or tap (tag, driver profiles) are cards. */
+.form{border-top:1.5px solid var(--rule);padding-top:20px}
+.stack>.form:first-child,h2+.form{border-top:0;padding-top:0}
+.form>h3:first-child{font-size:1.2rem;font-stretch:112%}
 
 /* people */
 .person{display:flex;gap:12px;align-items:center}
@@ -89,7 +95,7 @@ button{font:700 1rem var(--body);cursor:pointer}
 
 /* driver profile cards */
 .profiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
-.prof{position:relative;display:flex;flex-direction:column;gap:12px;background:var(--panel);border:1.5px solid var(--rule);border-radius:14px;padding:16px;text-align:left;color:var(--ink);font:inherit;width:100%}
+.prof{position:relative;display:flex;flex-direction:column;gap:12px;background:var(--panel);border:1.5px solid var(--rule);border-radius:10px;padding:16px;text-align:left;color:var(--ink);font:inherit;width:100%}
 button.prof{cursor:pointer}
 button.prof:hover{border-color:var(--soft)}
 button.prof[aria-pressed="true"]{border-color:var(--route);box-shadow:0 0 0 2px var(--route) inset}
@@ -97,7 +103,7 @@ button.prof[aria-pressed="true"]{border-color:var(--route);box-shadow:0 0 0 2px 
 .prof .top>div{min-width:0;flex:1}
 .av{width:52px;height:52px;border-radius:50%;flex:none;display:grid;place-items:center;font:850 1.1rem var(--display);font-stretch:115%;color:#fff;position:relative}
 .av .live{position:absolute;right:0;bottom:1px;width:13px;height:13px;border-radius:50%;background:var(--soft);border:2.5px solid var(--panel)}
-.av .live.on{background:#22a06b}
+.av .live.on{background:var(--route)}
 .prof h3{font-size:1.1rem;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .ver{display:inline-flex;align-items:center;gap:3px;font:700 .72rem var(--body);color:var(--route);background:var(--campus);border-radius:999px;padding:2px 7px}
 .ver svg{width:11px;height:11px}
@@ -105,7 +111,7 @@ button.prof[aria-pressed="true"]{border-color:var(--route);box-shadow:0 0 0 2px 
 .stats{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);padding-block:8px}
 .stats div{display:flex;flex-direction:column;align-items:flex-start}
 .stats div+div{padding-left:10px;border-left:1px solid var(--rule)}
-.stats b{font:800 1.15rem var(--display);font-stretch:90%;font-variant-numeric:tabular-nums}
+.stats b{font:800 1.3rem var(--display);font-stretch:75%;font-variant-numeric:tabular-nums}
 .stats span{font-size:.75rem;color:var(--soft)}
 .stars{color:#c99400}
 .prof .foot{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
@@ -138,16 +144,17 @@ th{font-size:.8rem;color:var(--soft);font-weight:600}
 .share input{font-size:.85rem}
 /* live trip status */
 .status{display:flex;flex-direction:column;gap:10px}
-.status .now{font:800 1.3rem/1.2 var(--display);font-stretch:108%}
+.status .now{font:800 1.45rem/1.15 var(--display);font-stretch:115%}
+/* Progress reads as a lane line: dashed road ahead, solid where the driver has already been. */
 .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
-.steps span{height:6px;border-radius:3px;background:var(--rule)}
+.steps span{height:5px;background:repeating-linear-gradient(90deg,var(--rule) 0 14px,transparent 14px 22px)}
 .steps span.on{background:var(--route)}
 .steplabels{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;font-size:.78rem;color:var(--soft)}
 .steplabels b{color:var(--ink)}
 /* chat */
 .chat{display:flex;flex-direction:column;gap:8px;max-height:260px;overflow-y:auto;padding:4px 2px}
 .msg{max-width:80%;padding:8px 12px;border-radius:14px;font-size:.92rem;line-height:1.4;overflow-wrap:anywhere}
-.msg.them{align-self:flex-start;background:var(--ground);border:1px solid var(--rule);border-bottom-left-radius:4px}
+.msg.them{align-self:flex-start;background:var(--panel);border:1px solid var(--rule);border-bottom-left-radius:4px}
 .msg.me{align-self:flex-end;background:var(--route);color:var(--panel);border-bottom-right-radius:4px}
 .msg small{display:block;font-size:.72rem;opacity:.75;margin-top:2px}
 .typing{font-size:.82rem;color:var(--soft);min-height:1.2em}
@@ -158,7 +165,7 @@ th{font-size:.8rem;color:var(--soft);font-weight:600}
 .avail .faces .av:first-child{margin-left:0}
 /* verification code */
 .codebox{font:800 1.6rem var(--display);font-stretch:70%;letter-spacing:.3em;text-align:center}
-.demo{background:var(--campus);border-radius:10px;padding:10px 12px;font-size:.88rem}
+.demo{background:var(--campus);border-radius:6px;padding:10px 12px;font-size:.88rem}
 .paystat{font-size:.82rem;font-weight:700}
 .paystat.ok{color:var(--route)} .paystat.wait,.paystat.sim{color:var(--soft)}
 .paystat.sim{font-style:italic}
@@ -286,7 +293,8 @@ function match(){
   return scored[0];
 }
 
-const AVC=["#0f766e","#7c3aed","#c2410c","#1d4ed8","#be185d","#4d7c0f"];
+// School-palette shades, dark enough for white initials and distinct from the navy dark-mode cards.
+const AVC=["#1e6b47","#3d5a80","#7a5512","#2f6f73"];
 const avColor=n=>{let h=0;for(const c of n)h=(h*17+c.charCodeAt(0))>>>0;return AVC[h%AVC.length]};
 const VER=`<span class="ver" title="School email confirmed with a code"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 6.2l2.3 2.3 4.7-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Verified GC student</span>`;
 function profile(d,{tag="div",attrs="",paid=[],footer=""}={}){
@@ -316,7 +324,7 @@ function render(){
 let pickedSchool=null,pending=null;
 function signin(){
   const intro=`<h1>Rides from classmates, without the group chat.</h1>
-    <p class="lede">No more chasing a driver in a crowded GroupMe. Every rider and driver is a verified Georgia College student, you're matched with a driver automatically, and drivers confirm when they've been paid.</p>`;
+    <p class="lede">Every rider and driver is a verified Georgia College student. You're matched with a driver automatically, and drivers confirm when you've paid.</p>`;
   if(pickedSchool===null){
     $("#view").innerHTML=`<div class="stack">${intro}
     <div class="form stack">
