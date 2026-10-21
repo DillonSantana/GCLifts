@@ -6,191 +6,34 @@
 <title>GClifts</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Public+Sans:wght@400;600;700&display=swap">
-<style>
-/* Layout: map of campus + town on the left (sticky on desktop, a strip on phones); the app column on the right.
-   The one bold element is the matched ride, shown as a yellow rear-view-mirror parking hang tag. */
-:root{
-  --ground:#eef1ec; --panel:#ffffff; --ink:#17211d; --soft:#5d6b65; --rule:#d5dcd6;
-  --permit:#f5c518; --permit-ink:#1c1a10; --route:#0f766e; --road:#c9d2cb; --campus:#dfe9e1; --alert:#b4374f;
-  --display:"Archivo",system-ui,sans-serif; --body:"Public Sans",system-ui,sans-serif;
-}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --ground:#0f1513; --panel:#18201d; --ink:#e7ede9; --soft:#97a69f; --rule:#2a3631;
-  --permit:#f5c518; --permit-ink:#1c1a10; --route:#4fc1b4; --road:#2c3833; --campus:#1b2924; --alert:#f07d93; color-scheme:dark}}
-:root[data-theme="dark"]{
-  --ground:#0f1513; --panel:#18201d; --ink:#e7ede9; --soft:#97a69f; --rule:#2a3631;
-  --permit:#f5c518; --permit-ink:#1c1a10; --route:#4fc1b4; --road:#2c3833; --campus:#1b2924; --alert:#f07d93; color-scheme:dark}
-
-[hidden]{display:none!important}
-*,*::before,*::after{box-sizing:border-box}
-body{background:var(--ground);color:var(--ink);font:16px/1.55 var(--body)}
-.shell{max-width:1100px;margin:0 auto;display:grid;gap:20px;
-  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:18px 40px}
-@media (min-width:900px){.shell{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:36px;align-items:start;padding-block:32px 56px}
-  .mapcol{position:sticky;top:24px}}
-.mapcol,.appcol{min-width:0}
-
-h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance}
-h1{font-size:clamp(2.1rem,6vw,3.3rem);line-height:.98;font-weight:850;font-stretch:125%;letter-spacing:-.02em}
-h2{font-size:1.55rem;line-height:1.1;font-weight:800;font-stretch:112%}
-h3{font-size:1.05rem;font-weight:700;font-stretch:100%}
-p{margin:0}
-.lede{color:var(--soft);max-width:44ch}
-.stack{display:flex;flex-direction:column;gap:16px}
-.tight{gap:8px}
-.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-
-/* masthead + nav */
-.mast{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
-.logo{font:900 1.5rem var(--display);font-stretch:125%;letter-spacing:-.03em;display:flex;align-items:center;gap:8px}
-.logo i{width:22px;height:22px;border-radius:6px 6px 11px 11px;background:var(--permit);display:inline-block;position:relative}
-.logo i::after{content:"";position:absolute;top:4px;left:50%;width:6px;height:6px;margin-left:-3px;border-radius:50%;background:var(--ground)}
-.whoami{color:var(--soft);font-size:.85rem}
-nav.tabs{display:flex;gap:4px;border-bottom:1.5px solid var(--rule)}
-nav.tabs button{background:none;border:0;border-bottom:3px solid transparent;margin-bottom:-1.5px;border-radius:0;
-  padding:10px 12px;font:700 .95rem var(--body);color:var(--soft);cursor:pointer}
-nav.tabs button[aria-current="page"]{color:var(--ink);border-bottom-color:var(--route)}
-
-/* controls */
-label{font-weight:700;font-size:.88rem;display:flex;flex-direction:column;gap:6px}
-input,select{font:inherit;font-weight:400;color:var(--ink);background:var(--panel);border:1.5px solid var(--rule);border-radius:8px;padding:11px 12px;width:100%}
-:focus-visible{outline:3px solid var(--route);outline-offset:2px}
-button{font:700 1rem var(--body);cursor:pointer}
-.go{background:var(--ink);color:var(--ground);border:0;border-radius:10px;padding:15px 18px;width:100%;font-size:1.05rem}
-.go:hover{background:var(--route)}
-.quiet{background:none;border:1.5px solid var(--rule);color:var(--ink);border-radius:8px;padding:9px 13px;font-size:.9rem}
-.quiet:hover{border-color:var(--ink)}
-.err{color:var(--alert);font-size:.9rem;min-height:1.3em}
-.chips{display:flex;flex-wrap:wrap;gap:8px}
-.chip{font:600 .88rem var(--body);padding:7px 12px;border-radius:999px;border:1.5px solid var(--rule);background:var(--panel);color:var(--ink)}
-.chip[aria-pressed="true"]{background:var(--route);border-color:var(--route);color:var(--panel)}
-.legend{font-weight:700;font-size:.88rem}
-.hint{color:var(--soft);font-size:.85rem}
-.trip{display:grid;grid-template-columns:18px minmax(0,1fr);gap:0 12px;align-items:center}
-.trip .pin{width:12px;height:12px;border-radius:50%;justify-self:center}
-.trip .a{border:3px solid var(--route);background:var(--panel)}
-.trip .b{background:var(--permit);box-shadow:0 0 0 2px var(--permit-ink) inset}
-.trip .line{width:2px;height:14px;background:var(--rule);justify-self:center}
-.form{background:var(--panel);border:1px solid var(--rule);border-radius:14px;padding:18px}
-
-/* people */
-.person{display:flex;gap:12px;align-items:center}
-.person>div{min-width:0;flex:1}
-.face{width:42px;height:42px;border-radius:50%;flex:none;display:grid;place-items:center;font:800 .95rem var(--display);font-stretch:110%;background:var(--campus);color:var(--route);border:1.5px solid var(--rule)}
-.sub{color:var(--soft);font-size:.88rem}
-.pays{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
-.pay{font-size:.78rem;font-weight:600;padding:2px 8px;border-radius:5px;background:var(--ground);border:1px solid var(--rule);color:var(--soft)}
-.pay.yes{color:var(--route);border-color:var(--route)}
-.list{display:flex;flex-direction:column}
-.list>*{padding-block:12px;border-top:1px solid var(--rule)}
-.pick{background:none;border:0;text-align:left;color:inherit;padding-inline:0;width:100%;font:inherit}
-.pick[aria-pressed="true"] .face{background:var(--route);color:var(--panel);border-color:var(--route)}
-.pick .chosen{display:none;color:var(--route);font-weight:700;font-size:.85rem}
-.pick[aria-pressed="true"] .chosen{display:inline}
-
-/* driver profile cards */
-.profiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
-.prof{position:relative;display:flex;flex-direction:column;gap:12px;background:var(--panel);border:1.5px solid var(--rule);border-radius:14px;padding:16px;text-align:left;color:var(--ink);font:inherit;width:100%}
-button.prof{cursor:pointer}
-button.prof:hover{border-color:var(--soft)}
-button.prof[aria-pressed="true"]{border-color:var(--route);box-shadow:0 0 0 2px var(--route) inset}
-.prof .top{display:flex;gap:12px;align-items:center}
-.prof .top>div{min-width:0;flex:1}
-.av{width:52px;height:52px;border-radius:50%;flex:none;display:grid;place-items:center;font:850 1.1rem var(--display);font-stretch:115%;color:#fff;position:relative}
-.av .live{position:absolute;right:0;bottom:1px;width:13px;height:13px;border-radius:50%;background:var(--soft);border:2.5px solid var(--panel)}
-.av .live.on{background:#22a06b}
-.prof h3{font-size:1.1rem;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.ver{display:inline-flex;align-items:center;gap:3px;font:700 .72rem var(--body);color:var(--route);background:var(--campus);border-radius:999px;padding:2px 7px}
-.ver svg{width:11px;height:11px}
-.prof .car{font-size:.88rem;color:var(--soft);overflow-wrap:anywhere}
-.stats{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);padding-block:8px}
-.stats div{display:flex;flex-direction:column;align-items:flex-start}
-.stats div+div{padding-left:10px;border-left:1px solid var(--rule)}
-.stats b{font:800 1.15rem var(--display);font-stretch:90%;font-variant-numeric:tabular-nums}
-.stats span{font-size:.75rem;color:var(--soft)}
-.stars{color:#c99400}
-.prof .foot{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
-.req{font:700 .85rem var(--body);color:var(--route)}
-
-/* map */
-.map{background:var(--panel);border:1px solid var(--rule);border-radius:16px;overflow:hidden}
-.map svg{display:block;width:100%;height:auto}
-.map .cap{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 16px;border-top:1px solid var(--rule);font-size:.88rem;color:var(--soft)}
-.map .cap b{color:var(--ink);font-variant-numeric:tabular-nums}
-@media (max-width:899px){.mapcol{order:-1}}
-
-/* the hang tag */
-.tag{position:relative;background:var(--permit);color:var(--permit-ink);border-radius:26px 26px 14px 14px;padding:58px 22px 22px;
-  max-width:360px;width:100%;margin-inline:auto;box-shadow:0 18px 30px -18px rgba(40,34,0,.55)}
-.tag::before{content:"";position:absolute;top:18px;left:50%;width:30px;height:30px;margin-left:-15px;border-radius:50%;background:var(--ground);box-shadow:inset 0 2px 4px rgba(0,0,0,.25)}
-.tag .issuer{font:800 .95rem var(--display);font-stretch:125%;display:flex;justify-content:space-between;border-bottom:2px solid var(--permit-ink);padding-bottom:8px}
-.tag .code{font:900 clamp(3rem,14vw,4.4rem)/1 var(--display);font-stretch:62%;letter-spacing:.02em;margin-top:14px;font-variant-numeric:tabular-nums}
-.tag .codehint{font-size:.85rem;font-weight:600}
-.tag .who{margin-top:16px;display:grid;grid-template-columns:1fr auto;gap:2px 12px;align-items:end}
-.tag .who h3{font-size:1.35rem;font-stretch:110%}
-.tag .eta{font:900 2rem/1 var(--display);font-stretch:80%;text-align:right;font-variant-numeric:tabular-nums}
-.tag .eta small{display:block;font:600 .8rem var(--body)}
-.tag .why{margin-top:14px;padding-top:10px;border-top:2px dashed var(--permit-ink);font-size:.88rem}
-@media (prefers-reduced-motion:no-preference){.tag{animation:swing 1.1s cubic-bezier(.3,1.6,.5,1) both;transform-origin:50% 33px}
-  @keyframes swing{0%{transform:rotate(-9deg)}55%{transform:rotate(3deg)}100%{transform:rotate(0)}}}
-
-table{width:100%;border-collapse:collapse;font-size:.9rem;min-width:440px}
-th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--rule)}
-th{font-size:.8rem;color:var(--soft);font-weight:600}
-.num{font-variant-numeric:tabular-nums;white-space:nowrap}
-.scroll{overflow-x:auto}
-.summary{font:700 1.15rem/1.35 var(--display);font-stretch:105%;max-width:36ch}
-.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--ground);padding:11px 16px;border-radius:10px;font-size:.92rem;font-weight:600;z-index:5}
-.share{display:flex;gap:8px;align-items:stretch}
-.share input{font-size:.85rem}
-/* live trip status */
-.status{display:flex;flex-direction:column;gap:10px}
-.status .now{font:800 1.3rem/1.2 var(--display);font-stretch:108%}
-.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
-.steps span{height:6px;border-radius:3px;background:var(--rule)}
-.steps span.on{background:var(--route)}
-.steplabels{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;font-size:.78rem;color:var(--soft)}
-.steplabels b{color:var(--ink)}
-/* chat */
-.chat{display:flex;flex-direction:column;gap:8px;max-height:260px;overflow-y:auto;padding:4px 2px}
-.msg{max-width:80%;padding:8px 12px;border-radius:14px;font-size:.92rem;line-height:1.4;overflow-wrap:anywhere}
-.msg.them{align-self:flex-start;background:var(--ground);border:1px solid var(--rule);border-bottom-left-radius:4px}
-.msg.me{align-self:flex-end;background:var(--route);color:var(--panel);border-bottom-right-radius:4px}
-.msg small{display:block;font-size:.72rem;opacity:.75;margin-top:2px}
-.typing{font-size:.82rem;color:var(--soft);min-height:1.2em}
-/* available drivers strip */
-.avail{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:.9rem;color:var(--soft)}
-.avail .faces{display:flex}
-.avail .faces .av{width:30px;height:30px;font-size:.7rem;border:2px solid var(--panel);margin-left:-8px}
-.avail .faces .av:first-child{margin-left:0}
-/* verification code */
-.codebox{font:800 1.6rem var(--display);font-stretch:70%;letter-spacing:.3em;text-align:center}
-.demo{background:var(--campus);border-radius:10px;padding:10px 12px;font-size:.88rem}
-.paystat{font-size:.82rem;font-weight:700}
-.paystat.ok{color:var(--route)} .paystat.wait{color:var(--soft)}
-</style>
+<!-- Built by Tailwind from styles/input.css. After changing classes, run: npm run build -->
+<link rel="stylesheet" href="styles/app.css">
 </head>
-<body>
+<body class="min-h-dvh text-base">
 
-<div class="shell">
-  <section class="mapcol" aria-label="Map">
-    <div class="map">
-      <svg id="map" viewBox="0 0 360 250" role="img" aria-label="Map of campus and nearby stops"></svg>
-      <div class="cap" id="mapcap"></div>
+<!-- Layout: the sign-in screens are one centered column with no map. Once signed in, phones and tablets stack the map above the app; from lg up the map sits on the left and stays in view.
+     The one bold element is the matched ride, shown as a yellow rear-view-mirror parking hang tag. -->
+<div id="shell" class="mx-auto grid max-w-2xl gap-5 pt-4 pb-10 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:gap-6 sm:pt-6 lg:data-[signed]:max-w-6xl lg:data-[signed]:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:items-start lg:gap-9 lg:pt-8 lg:pb-14">
+  <section id="mapsec" class="min-w-0 lg:sticky lg:top-6" aria-label="Map">
+    <div class="overflow-hidden rounded-2xl border border-rule bg-panel">
+      <svg id="map" class="block h-auto w-full" viewBox="0 0 360 250" role="img" aria-label="Map of campus and nearby stops"></svg>
+      <div id="mapcap" class="flex flex-wrap justify-between gap-x-3 gap-y-1 border-t border-rule px-4 py-3 text-sm text-soft [&_b]:text-ink [&_b]:tabular-nums"></div>
     </div>
   </section>
-  <section class="appcol stack">
-    <header class="mast">
-      <div class="logo"><i aria-hidden="true"></i>GClifts</div>
-      <span class="whoami" id="who"></span>
+  <section class="flex min-w-0 flex-col gap-4">
+    <header class="flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-2 font-display text-2xl font-black tracking-[-.03em] [font-stretch:125%]">
+        <i aria-hidden="true" class="relative inline-block size-[22px] rounded-[6px_6px_11px_11px] bg-permit after:absolute after:top-1 after:left-1/2 after:-ml-[3px] after:size-1.5 after:rounded-full after:bg-ground"></i>GClifts
+      </div>
+      <span class="min-w-0 truncate text-sm text-soft" id="who"></span>
     </header>
-    <nav class="tabs" id="tabs" hidden>
-      <button data-tab="ride">Get a ride</button><button data-tab="drive">Drive</button><button data-tab="log">Ride log</button>
+    <nav id="tabs" hidden class="sticky top-0 z-10 -mx-4 flex border-b-[1.5px] border-rule bg-ground px-4 sm:static sm:mx-0 sm:gap-1 sm:px-0">
+      <button data-tab="ride" class="-mb-[1.5px] min-h-11 flex-1 border-b-[3px] border-transparent px-3 py-2.5 text-[.95rem] font-bold text-soft hover:text-ink aria-[current=page]:border-route aria-[current=page]:text-ink sm:flex-none">Get a ride</button><button data-tab="drive" class="-mb-[1.5px] min-h-11 flex-1 border-b-[3px] border-transparent px-3 py-2.5 text-[.95rem] font-bold text-soft hover:text-ink aria-[current=page]:border-route aria-[current=page]:text-ink sm:flex-none">Drive</button><button data-tab="log" class="-mb-[1.5px] min-h-11 flex-1 border-b-[3px] border-transparent px-3 py-2.5 text-[.95rem] font-bold text-soft hover:text-ink aria-[current=page]:border-route aria-[current=page]:text-ink sm:flex-none">Ride log</button>
     </nav>
     <main id="view"></main>
   </section>
 </div>
-<div class="toast" id="toast" role="status" hidden></div>
+<div id="toast" role="status" hidden class="fixed bottom-[calc(20px+env(safe-area-inset-bottom,0px))] left-1/2 z-20 max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-[10px] bg-ink px-4 py-3 text-[.92rem] font-semibold text-ground shadow-lg"></div>
 
 <script>
 const KEY="gclifts-v7";
@@ -225,13 +68,23 @@ function fresh(){return{user:null,tab:"ride",drivers:structuredClone(seedDrivers
   draft:{from:"Maxwell Student Union",to:"Walmart Supercenter",purpose:"Groceries",pay:["Venmo"],prefer:null},active:null}}
 function load(){try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){} if(!S||!S.draft)S=fresh(); S.seeded=S.seeded||{}}
 // Each rider gets their own copy of the sample rides the first time they sign in on this browser.
-function seedRidesFor(email){S.log=S.log.filter(r=>r.riderEmail!==email);
+// Resetting replaces only the sample rides; rides the rider took themselves stay.
+function seedRidesFor(email){S.log=S.log.filter(r=>!(r.riderEmail===email&&r.sample));
   S.log.push(...seedLog.map(r=>({...r,id:r.id+"-"+email,riderEmail:email,sample:true})));S.seeded[email]=true}
+// A new driver gets two sample riders so the Drive tab shows payment confirmation and messages right away.
+const seedRiders=[
+  {riderName:"Maya Garcia",riderEmail:"mgarcia@bobcats.gcsu.edu",from:"Maxwell Student Union",to:"CVS Pharmacy",purpose:"Pharmacy",when:"2026-10-20T15:10",rating:5,confirmed:false,
+    chat:[{who:"rider",text:"Thanks for the ride! I just sent the money.",t:Date.parse("2026-10-20T15:32")}]},
+  {riderName:"Tyler Brooks",riderEmail:"tbrooks@bobcats.gcsu.edu",from:"The Village apts",to:"Kroger",purpose:"Groceries",when:"2026-10-18T11:30",rating:5,confirmed:true,
+    chat:[{who:"rider",text:"I'm by the front gate.",t:Date.parse("2026-10-18T11:24")},{who:"driver",text:"Pulling up now.",t:Date.parse("2026-10-18T11:25")}]}];
+function seedRidersFor(d){if(S.seeded["driver:"+d.id])return;
+  S.log.push(...seedRiders.map((r,i)=>({...structuredClone(r),id:"s"+i+"-"+d.id,driverId:d.id,paidWith:d.pay[0],sample:true})));S.seeded["driver:"+d.id]=true}
 const myLog=()=>S.user?S.log.filter(r=>r.riderEmail===S.user.email).sort((a,b)=>new Date(b.when)-new Date(a.when)):[];
 // One seat is in use while the signed-in rider has an active ride with this driver.
 const openSeats=d=>d.seats-(S.active&&S.active.driverId===d.id?1:0);
 function confirmPending(){if(!S)return;let changed=false;
-  S.log.forEach(r=>{if(!r.confirmed&&r.endedAt&&Date.now()-r.endedAt>3000){r.confirmed=true;changed=true}});
+  // Sample drivers confirm on their own after a few seconds; a driver who signed up on this browser confirms in their Drive tab.
+  S.log.forEach(r=>{if(!r.confirmed&&r.endedAt&&!String(r.driverId).startsWith("u-")&&Date.now()-r.endedAt>3000){r.confirmed=true;changed=true}});
   if(changed){save();if(S.user&&S.tab==="log"&&!S.active)render()}}
 setInterval(confirmPending,1000);
 const isEssential=p=>!!(PURPOSE.find(x=>x[0]===p)||[])[1];
@@ -249,6 +102,34 @@ const miles=(a,b)=>(dist(a,b)/42).toFixed(1);
 function toast(m){const t=$("#toast");t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2400)}
 const opts=sel=>Object.keys(SPOTS).map(s=>`<option${s===sel?" selected":""}>${esc(s)}</option>`).join("");
 const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* ---------- shared Tailwind class sets (full strings so Tailwind can find them) ---------- */
+const UI={
+  stack:"flex flex-col gap-4",
+  tight:"flex flex-col gap-2",
+  form:"flex flex-col gap-4 rounded-2xl border border-rule bg-panel p-4 sm:p-5",
+  h1:"m-0 font-display text-[clamp(2.1rem,6vw,3.3rem)] leading-[.98] font-[850] tracking-[-.02em] [font-stretch:125%]",
+  h2:"m-0 font-display text-2xl leading-tight font-extrabold [font-stretch:112%] sm:text-[1.55rem]",
+  h3:"m-0 font-display text-[1.05rem] font-bold",
+  lede:"max-w-[44ch] text-soft",
+  label:"flex flex-col gap-1.5 text-sm font-bold",
+  input:"w-full rounded-lg border-[1.5px] border-rule bg-panel px-3 py-2.5 text-base font-normal text-ink placeholder:text-soft",
+  go:"min-h-12 w-full rounded-[10px] bg-ink px-4 py-3.5 text-[1.05rem] font-bold text-ground transition-colors hover:bg-route",
+  quiet:"min-h-11 shrink-0 rounded-lg border-[1.5px] border-rule px-3.5 py-2 text-sm font-bold text-ink hover:border-ink",
+  chips:"flex flex-wrap gap-2",
+  chip:"min-h-11 rounded-full border-[1.5px] border-rule bg-panel px-3.5 py-2 text-sm font-semibold text-ink aria-pressed:border-route aria-pressed:bg-route aria-pressed:text-panel",
+  legend:"text-sm font-bold",
+  hint:"text-sm text-soft",
+  sub:"text-sm text-soft",
+  err:"min-h-[1.3em] text-sm text-alert",
+  face:"grid size-[42px] flex-none place-items-center rounded-full border-[1.5px] border-rule bg-campus font-display text-[.95rem] font-extrabold text-route [font-stretch:110%]",
+  pays:"mt-1.5 flex flex-wrap gap-1.5",
+  pay:"rounded-[5px] border border-rule bg-ground px-2 py-0.5 text-xs font-semibold text-soft",
+  payYes:"rounded-[5px] border border-route bg-ground px-2 py-0.5 text-xs font-semibold text-route",
+  profiles:"grid grid-cols-[repeat(auto-fill,minmax(min(100%,240px),1fr))] gap-3",
+  prof:"relative flex w-full flex-col gap-3 rounded-2xl border-[1.5px] border-rule bg-panel p-4 text-left text-ink",
+  profBtn:"relative flex w-full flex-col gap-3 rounded-2xl border-[1.5px] border-rule bg-panel p-4 text-left text-ink hover:border-soft aria-pressed:border-route aria-pressed:shadow-[inset_0_0_0_2px_var(--route)]",
+};
 
 /* ---------- map ---------- */
 function curve(a,b){const [x1,y1]=pos(a),[x2,y2]=pos(b);const mx=(x1+x2)/2,my=(y1+y2)/2;const dx=x2-x1,dy=y2-y1;
@@ -338,17 +219,21 @@ function match(){
 
 const AVC=["#0f766e","#7c3aed","#c2410c","#1d4ed8","#be185d","#4d7c0f"];
 const avColor=n=>{let h=0;for(const c of n)h=(h*17+c.charCodeAt(0))>>>0;return AVC[h%AVC.length]};
-const VER=`<span class="ver" title="School email confirmed with a code"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 6.2l2.3 2.3 4.7-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Verified GC student</span>`;
+const VER=`<span class="inline-flex items-center gap-[3px] rounded-full bg-campus px-[7px] py-0.5 font-body text-[.72rem] font-bold text-route" title="School email confirmed with a code"><svg class="size-[11px]" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 6.2l2.3 2.3 4.7-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Verified GC student</span>`;
+const fmtDay=w=>new Date(w).toLocaleDateString("en-US",{month:"short",day:"numeric"});
+const payStatus=r=>r.confirmed?`<span class="text-[.82rem] font-bold text-route">Confirmed</span>`:`<span class="text-[.82rem] font-bold text-soft">Waiting for driver</span>`;
+const payTags=(list,yes)=>list.map(p=>`<span class="${yes.includes(p)?UI.payYes:UI.pay}">${esc(p)}</span>`).join("");
 function profile(d,{tag="div",attrs="",paid=[],footer=""}={}){
   const rs=myLog().filter(r=>r.driverId===d.id),avg=rs.length?rs.reduce((t,r)=>t+r.rating,0)/rs.length:0;
-  return `<${tag} class="prof" ${attrs}>
-    <div class="top"><span class="av" style="background:${avColor(d.name)}">${initials(d.name)}<i class="live ${d.online?"on":""}" title="${d.online?"Online now":"Offline"}"></i></span>
-      <div><h3>${esc(d.name)} ${VER}</h3><div class="car">${esc(d.car)}</div><div class="car">Usually near ${esc(d.zone)}</div></div></div>
-    <div class="stats"><div><b>${rs.length}</b><span>rides together</span></div>
-      <div><b>${rs.length?avg.toFixed(1):"New"}${rs.length?' <span class="stars">★</span>':""}</b><span>your rating</span></div>
-      <div><b>${openSeats(d)}</b><span>open seats</span></div></div>
-    <div class="pays">${d.pay.map(p=>`<span class="pay ${paid.includes(p)?"yes":""}">${esc(p)}</span>`).join("")}</div>
-    ${footer?`<div class="foot">${footer}</div>`:""}
+  return `<${tag} class="${tag==="button"?UI.profBtn:UI.prof}" ${attrs}>
+    <div class="flex items-center gap-3"><span class="relative grid size-[52px] flex-none place-items-center rounded-full font-display text-[1.1rem] font-[850] text-white [font-stretch:115%]" style="background:${avColor(d.name)}">${initials(d.name)}<i class="${d.online?"absolute right-0 bottom-px size-[13px] rounded-full border-[2.5px] border-panel bg-[#22a06b]":"absolute right-0 bottom-px size-[13px] rounded-full border-[2.5px] border-panel bg-soft"}" title="${d.online?"Online now":"Offline"}"></i></span>
+      <div class="min-w-0 flex-1"><h3 class="m-0 flex flex-wrap items-center gap-1.5 font-display text-[1.1rem] font-bold">${esc(d.name)} ${VER}</h3><div class="text-sm [overflow-wrap:anywhere] text-soft">${esc(d.car)}</div><div class="text-sm [overflow-wrap:anywhere] text-soft">Usually near ${esc(d.zone)}</div></div></div>
+    <div class="grid grid-cols-3 border-y border-rule py-2 *:flex *:flex-col *:items-start [&>div+div]:border-l [&>div+div]:border-rule [&>div+div]:pl-2.5">
+      <div><b class="font-display text-[1.15rem] font-extrabold tabular-nums [font-stretch:90%]">${rs.length}</b><span class="text-xs text-soft">rides together</span></div>
+      <div><b class="font-display text-[1.15rem] font-extrabold tabular-nums [font-stretch:90%]">${rs.length?avg.toFixed(1):"New"}${rs.length?' <span class="text-[#c99400]">★</span>':""}</b><span class="text-xs text-soft">your rating</span></div>
+      <div><b class="font-display text-[1.15rem] font-extrabold tabular-nums [font-stretch:90%]">${openSeats(d)}</b><span class="text-xs text-soft">open seats</span></div></div>
+    <div class="${UI.pays}">${payTags(d.pay,paid)}</div>
+    ${footer?`<div class="flex flex-wrap items-center justify-between gap-2">${footer}</div>`:""}
   </${tag}>`;
 }
 const code=()=>"GC-"+String(Math.floor(1000+Math.random()*9000));
@@ -356,6 +241,8 @@ const code=()=>"GC-"+String(Math.floor(1000+Math.random()*9000));
 /* ---------- views ---------- */
 function render(){
   if(S.active&&!drv(S.active.driverId)){S.active=null;save();toast("Your driver is no longer available. Request a new ride.")}
+  // The sign-in screens are a single centered column; the map appears once the student is signed in.
+  $("#mapsec").hidden=!S.user;$("#shell").toggleAttribute("data-signed",!!S.user);
   $("#tabs").hidden=!S.user;
   $("#who").textContent=S.user?(S.user.school?S.user.school+", ":"")+S.user.email:"";
   document.querySelectorAll("#tabs button").forEach(b=>b.setAttribute("aria-current",b.dataset.tab===S.tab?"page":"false"));
@@ -365,34 +252,34 @@ function render(){
 
 let pickedSchool=null,pending=null;
 function signin(){
-  const intro=`<h1>Rides from classmates, without the group chat.</h1>
-    <p class="lede">No more chasing a driver in a crowded GroupMe. Every rider and driver is a verified Georgia College student, you're matched with a driver automatically, and drivers confirm when they've been paid.</p>`;
+  const intro=`<h1 class="${UI.h1}">Rides from classmates, without the group chat.</h1>
+    <p class="${UI.lede}">No more chasing a driver in a crowded GroupMe. Every rider and driver is a verified Georgia College student, you're matched with a driver automatically, and drivers confirm when they've been paid.</p>`;
   if(pickedSchool===null){
-    $("#view").innerHTML=`<div class="stack">${intro}
-    <div class="form stack">
-      <h3>Connect to your school</h3>
-      <p class="hint">GClifts only matches you with students from the same school.</p>
-      <div class="list" id="schools">${SCHOOLS.map((c,i)=>`<button type="button" class="pick person" data-i="${i}">
-        <span class="face">${esc(c.short)}</span><div><h3>${esc(c.name)}</h3><div class="sub">${esc(c.city)}</div></div></button>`).join("")}</div>
-      <p class="hint">More schools are coming. Ask your student government to add yours.</p>
+    $("#view").innerHTML=`<div class="${UI.stack}">${intro}
+    <div class="${UI.form}">
+      <h3 class="${UI.h3}">Connect to your school</h3>
+      <p class="${UI.hint}">GClifts only matches you with students from the same school.</p>
+      <div class="flex flex-col *:border-t *:border-rule *:py-3" id="schools">${SCHOOLS.map((c,i)=>`<button type="button" class="pick flex w-full items-center gap-3 text-left text-inherit hover:text-route" data-i="${i}">
+        <span class="${UI.face}">${esc(c.short)}</span><div class="min-w-0 flex-1"><h3 class="${UI.h3}">${esc(c.name)}</h3><div class="${UI.sub}">${esc(c.city)}</div></div></button>`).join("")}</div>
+      <p class="${UI.hint}">More schools are coming. Ask your student government to add yours.</p>
     </div></div>`;
     $("#schools").onclick=e=>{const b=e.target.closest(".pick");if(!b)return;pickedSchool=+b.dataset.i;signin()};
     return;
   }
   const sc=SCHOOLS[pickedSchool];
-  const head=`<div class="person"><span class="face">${esc(sc.short)}</span><div><h3>${esc(sc.name)}</h3><div class="sub">${esc(sc.city)}</div></div>
-        <button type="button" class="quiet" id="change">Change</button></div>`;
+  const head=`<div class="flex items-center gap-3"><span class="${UI.face}">${esc(sc.short)}</span><div class="min-w-0 flex-1"><h3 class="${UI.h3}">${esc(sc.name)}</h3><div class="${UI.sub}">${esc(sc.city)}</div></div>
+        <button type="button" class="${UI.quiet}" id="change">Change</button></div>`;
   if(pending){
-    $("#view").innerHTML=`<div class="stack">${intro}
-    <form id="f" class="form stack" novalidate>
+    $("#view").innerHTML=`<div class="${UI.stack}">${intro}
+    <form id="f" class="${UI.form}" novalidate>
       ${head}
-      <h3>Check your email</h3>
-      <p class="hint">We sent a 6-digit code to <b>${esc(pending.email)}</b>. Enter it to confirm the address is yours.</p>
-      <div class="demo">Demo build: no email is actually sent. Your code is <b>${pending.code}</b>.</div>
-      <label for="code">Verification code<input id="code" class="codebox" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="000000"></label>
-      <p class="err" id="err"></p>
-      <button class="go">Verify email</button>
-      <button type="button" class="quiet" id="back">Use a different email</button>
+      <h3 class="${UI.h3}">Check your email</h3>
+      <p class="${UI.hint}">We sent a 6-digit code to <b class="[overflow-wrap:anywhere] text-ink">${esc(pending.email)}</b>. Enter it to confirm the address is yours.</p>
+      <div class="rounded-[10px] bg-campus px-3 py-2.5 text-sm">Demo build: no email is actually sent. Your code is <b>${pending.code}</b>.</div>
+      <label for="code" class="${UI.label}">Verification code<input id="code" class="${UI.input} text-center font-display text-[1.6rem] font-extrabold tracking-[.3em] [font-stretch:70%]" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="000000"></label>
+      <p class="${UI.err}" id="err"></p>
+      <button class="${UI.go}">Verify email</button>
+      <button type="button" class="${UI.quiet}" id="back">Use a different email</button>
     </form></div>`;
     $("#code").focus();
     $("#change").onclick=()=>{pickedSchool=null;pending=null;signin()};
@@ -404,13 +291,13 @@ function signin(){
     };
     return;
   }
-  $("#view").innerHTML=`<div class="stack">${intro}
-    <form id="f" class="form stack" novalidate>
+  $("#view").innerHTML=`<div class="${UI.stack}">${intro}
+    <form id="f" class="${UI.form}" novalidate>
       ${head}
-      <label for="email">School email<input id="email" type="email" autocomplete="email" placeholder="first.last@${esc(sc.domains[1]||sc.domains[0])}"></label>
-      <label for="name">Your name<input id="name" autocomplete="name" placeholder="First and last name"></label>
-      <p class="err" id="err"></p>
-      <button class="go">Send verification code</button>
+      <label for="email" class="${UI.label}">School email<input id="email" class="${UI.input}" type="email" inputmode="email" autocomplete="email" placeholder="first.last@${esc(sc.domains[1]||sc.domains[0])}"></label>
+      <label for="name" class="${UI.label}">Your name<input id="name" class="${UI.input}" autocomplete="name" placeholder="First and last name"></label>
+      <p class="${UI.err}" id="err"></p>
+      <button class="${UI.go}">Send verification code</button>
     </form></div>`;
   $("#email").focus();
   $("#change").onclick=()=>{pickedSchool=null;signin()};
@@ -425,37 +312,37 @@ function signin(){
 function rideView(){
   const D=S.draft;
   const past=[...new Set(myLog().map(r=>r.driverId))].map(drv).filter(d=>d&&d.online&&d.email!==S.user.email);
-  $("#view").innerHTML=`<div class="stack">
-    <h2>Where are you headed?</h2>
-    <div class="form stack">
-      <div class="trip">
-        <span class="pin a"></span><label for="from">Pickup<input id="from" value="${esc(D.from)}" placeholder="Building or address" autocomplete="off"></label>
-        <span class="line"></span><span></span>
-        <span class="pin b"></span><label for="to">Drop-off<input id="to" value="${esc(D.to)}" placeholder="Store, clinic or address" autocomplete="off"></label>
+  $("#view").innerHTML=`<div class="${UI.stack}">
+    <h2 class="${UI.h2}">Where are you headed?</h2>
+    <div class="${UI.form}">
+      <div class="grid grid-cols-[18px_minmax(0,1fr)] items-center gap-x-3">
+        <span class="size-3 justify-self-center rounded-full border-[3px] border-route bg-panel"></span><label for="from" class="${UI.label}">Pickup<input id="from" class="${UI.input}" value="${esc(D.from)}" placeholder="Building or address" autocomplete="off"></label>
+        <span class="h-3.5 w-0.5 justify-self-center bg-rule"></span><span></span>
+        <span class="size-3 justify-self-center rounded-full bg-permit shadow-[inset_0_0_0_2px_var(--permit-ink)]"></span><label for="to" class="${UI.label}">Drop-off<input id="to" class="${UI.input}" value="${esc(D.to)}" placeholder="Store, clinic or address" autocomplete="off"></label>
       </div>
-      <div class="stack tight"><span class="legend">What's the trip for?</span>
-        <div class="chips" id="purpose">${PURPOSE.map(([p])=>`<button type="button" class="chip" aria-pressed="${p===D.purpose}">${p}</button>`).join("")}</div>
-        <span class="hint" id="phint"></span></div>
-      <div class="stack tight"><span class="legend">You can pay with</span>
-        <div class="chips" id="pay">${PAY.map(p=>`<button type="button" class="chip" aria-pressed="${D.pay.includes(p)}">${p}</button>`).join("")}</div></div>
-      <p class="err" id="err"></p>
-      ${(()=>{const on=S.drivers.filter(d=>d.online&&d.email!==S.user.email&&openSeats(d)>0);return on.length?`<div class="avail"><span class="faces">${on.slice(0,5).map(d=>`<span class="av" style="background:${avColor(d.name)}" title="${esc(d.name)}">${initials(d.name)}</span>`).join("")}</span><span>${on.length} driver${on.length>1?"s":""} available to drive now</span></div>`:`<div class="avail">No drivers are available right now.</div>`})()}
-      <button class="go" id="go">Find my driver</button>
+      <div class="${UI.tight}"><span class="${UI.legend}">What's the trip for?</span>
+        <div class="${UI.chips}" id="purpose">${PURPOSE.map(([p])=>`<button type="button" class="${UI.chip}" aria-pressed="${p===D.purpose}">${p}</button>`).join("")}</div>
+        <span class="${UI.hint}" id="phint"></span></div>
+      <div class="${UI.tight}"><span class="${UI.legend}">You can pay with</span>
+        <div class="${UI.chips}" id="pay">${PAY.map(p=>`<button type="button" class="${UI.chip}" aria-pressed="${D.pay.includes(p)}">${p}</button>`).join("")}</div></div>
+      <p class="${UI.err}" id="err"></p>
+      ${(()=>{const on=S.drivers.filter(d=>d.online&&d.email!==S.user.email&&openSeats(d)>0);return on.length?`<div class="flex flex-wrap items-center gap-2.5 text-sm text-soft"><span class="flex *:-ml-2 *:first:ml-0">${on.slice(0,5).map(d=>`<span class="grid size-[30px] place-items-center rounded-full border-2 border-panel font-display text-[.7rem] font-[850] text-white" style="background:${avColor(d.name)}" title="${esc(d.name)}">${initials(d.name)}</span>`).join("")}</span><span>${on.length} driver${on.length>1?"s":""} available to drive now</span></div>`:`<div class="text-sm text-soft">No drivers are available right now.</div>`})()}
+      <button class="${UI.go}" id="go">Find my driver</button>
     </div>
-    ${past.length?`<div class="stack tight"><h3>Ride again with someone you know</h3>
-      <p class="hint">Tap a driver to ask for them. If they're free, you're matched with them first.</p>
-      <div class="profiles" id="again">${past.map(d=>profile(d,{tag:"button",attrs:`type="button" data-id="${d.id}" aria-pressed="${D.prefer===d.id}"`,paid:D.pay,
-        footer:`<span></span><span class="req">${D.prefer===d.id?"Requested":"Request"}</span>`})).join("")}</div></div>`:""}
+    ${past.length?`<div class="${UI.tight}"><h3 class="${UI.h3}">Ride again with someone you know</h3>
+      <p class="${UI.hint}">Tap a driver to ask for them. If they're free, you're matched with them first.</p>
+      <div class="${UI.profiles}" id="again">${past.map(d=>profile(d,{tag:"button",attrs:`type="button" data-id="${d.id}" aria-pressed="${D.prefer===d.id}"`,paid:D.pay,
+        footer:`<span></span><span class="req text-sm font-bold text-route">${D.prefer===d.id?"Requested":"Request"}</span>`})).join("")}</div></div>`:""}
   </div>`;
   const hint=()=>{const ess=PURPOSE.find(p=>p[0]===S.draft.purpose)[1];$("#phint").textContent=ess?"Essential trip. Drivers hold their last open seat for these.":"Drivers hold their last open seat for essential trips (groceries, pharmacy, clinic, job interview)."};hint();
   $("#from").oninput=e=>{D.from=known(e.target.value);save();drawMap()};
   $("#to").oninput=e=>{D.to=known(e.target.value);save();drawMap()};
-  $("#purpose").onclick=e=>{const c=e.target.closest(".chip");if(!c)return;D.purpose=c.textContent;
-    $("#purpose").querySelectorAll(".chip").forEach(x=>x.setAttribute("aria-pressed",x===c));hint();save()};
-  $("#pay").onclick=e=>{const c=e.target.closest(".chip");if(!c)return;const on=c.getAttribute("aria-pressed")!=="true";c.setAttribute("aria-pressed",on);
+  $("#purpose").onclick=e=>{const c=e.target.closest("button");if(!c)return;D.purpose=c.textContent;
+    $("#purpose").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===c));hint();save()};
+  $("#pay").onclick=e=>{const c=e.target.closest("button");if(!c)return;const on=c.getAttribute("aria-pressed")!=="true";c.setAttribute("aria-pressed",on);
     D.pay=on?[...D.pay,c.textContent]:D.pay.filter(p=>p!==c.textContent);save()};
-  const ag=$("#again");if(ag)ag.onclick=e=>{const b=e.target.closest(".prof");if(!b)return;D.prefer=D.prefer===b.dataset.id?null:b.dataset.id;
-    ag.querySelectorAll(".prof").forEach(x=>{const on=x.dataset.id===D.prefer;x.setAttribute("aria-pressed",on);x.querySelector(".req").textContent=on?"Requested":"Request"});save()};
+  const ag=$("#again");if(ag)ag.onclick=e=>{const b=e.target.closest("[data-id]");if(!b)return;D.prefer=D.prefer===b.dataset.id?null:b.dataset.id;
+    ag.querySelectorAll("[data-id]").forEach(x=>{const on=x.dataset.id===D.prefer;x.setAttribute("aria-pressed",on);x.querySelector(".req").textContent=on?"Requested":"Request"});save()};
   $("#go").onclick=()=>{
     if(!D.from||!D.to)return $("#err").textContent="Type where you want to be picked up and dropped off.";
     if(D.from.toLowerCase()===D.to.toLowerCase())return $("#err").textContent="Pickup and drop-off are the same place. Change one of them.";
@@ -470,48 +357,52 @@ function rideView(){
 
 const REPLIES=[[/where|which|spot|find/i,"I'll pull up right out front. Look for the {car}."],[/late|minute|wait|hold/i,"No problem, I'll wait a couple of minutes."],
   [/pay|venmo|paypal|cash ?app/i,"{pay} works for me. Send it after the ride."],[/thank|thx|ty\b/i,"Anytime!"],[/.*/,"Sounds good, see you soon."]];
+const MSG={
+  me:"max-w-[80%] self-end rounded-[14px] rounded-br-[4px] bg-route px-3 py-2 text-[.92rem] leading-[1.4] [overflow-wrap:anywhere] text-panel",
+  them:"max-w-[80%] self-start rounded-[14px] rounded-bl-[4px] border border-rule bg-ground px-3 py-2 text-[.92rem] leading-[1.4] [overflow-wrap:anywhere]",
+};
 function activeView(){
   const a=S.active,d=drv(a.driverId),ok=d.pay.filter(p=>a.pay.includes(p)),n=first(d.name);
   if(!a.chat){a.chat=[{who:"them",text:`Hey, it's ${n}. I'm on my way in the ${d.car}.`,t:Date.now()}];save()}
   const shareText=`I'm riding with ${d.name} (${d.car}) from ${a.from} to ${a.to}. Ride code ${a.code}.${a.eta===null?"":` ETA ${a.eta} min.`} Sent from GClifts.`;
   const tm=t=>new Date(t).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"});
-  const bubbles=()=>a.chat.map(m=>`<div class="msg ${m.who}">${esc(m.text)}<small>${m.who==="me"?"You":esc(n)}, ${tm(m.t)}</small></div>`).join("");
-  $("#view").innerHTML=`<div class="stack">
-    <div class="form status" aria-live="polite">
-      <div class="now" id="st">${esc(n)} is on the way</div><div class="sub" id="stsub"></div>
-      <div class="steps" id="steps"><span class="on"></span><span></span><span></span><span></span></div>
-      <div class="steplabels" id="steplabels"><span>Matched</span><span>On the way</span><span>Arriving</span><span>Here</span></div>
+  const bubbles=()=>a.chat.map(m=>`<div class="${MSG[m.who]}">${esc(m.text)}<small class="mt-0.5 block text-[.72rem] opacity-75">${m.who==="me"?"You":esc(n)}, ${tm(m.t)}</small></div>`).join("");
+  $("#view").innerHTML=`<div class="${UI.stack}">
+    <div class="flex flex-col gap-2.5 rounded-2xl border border-rule bg-panel p-4 sm:p-5" aria-live="polite">
+      <div class="font-display text-[1.3rem] leading-[1.2] font-extrabold [font-stretch:108%]" id="st">${esc(n)} is on the way</div><div class="${UI.sub}" id="stsub"></div>
+      <div class="grid grid-cols-4 gap-1.5 *:h-1.5 *:rounded-[3px] *:bg-rule [&>.on]:bg-route" id="steps"><span class="on"></span><span></span><span></span><span></span></div>
+      <div class="grid grid-cols-4 gap-1.5 text-xs text-soft [&_b]:text-ink" id="steplabels"><span>Matched</span><span>On the way</span><span>Arriving</span><span>Here</span></div>
     </div>
-    <div class="tag" role="group" aria-label="Your matched ride">
-      <div class="issuer"><span>GClifts</span><span>${esc(a.purpose)}</span></div>
-      <div class="code">${a.code}</div>
-      <div class="codehint">Ask your driver to say this code before you get in.</div>
-      <div class="who"><div><h3>${esc(d.name)}</h3><div>${esc(d.car)}</div></div>
-        ${a.eta===null?`<div class="eta"><small>On the way</small></div>`:`<div class="eta"><span id="etan">${a.eta}</span><small>min away</small></div>`}</div>
-      <div class="why">${a.why.length?esc(a.why.join(". "))+".":"Closest driver who's online."}</div>
+    <div class="relative mx-auto w-full max-w-[360px] origin-[50%_33px] rounded-[26px_26px_14px_14px] bg-permit px-[22px] pt-[58px] pb-[22px] text-permit-ink shadow-[0_18px_30px_-18px_rgba(40,34,0,.55)] motion-safe:animate-swing before:absolute before:top-[18px] before:left-1/2 before:-ml-[15px] before:size-[30px] before:rounded-full before:bg-ground before:shadow-[inset_0_2px_4px_rgba(0,0,0,.25)]" role="group" aria-label="Your matched ride">
+      <div class="flex justify-between border-b-2 border-permit-ink pb-2 font-display text-[.95rem] font-extrabold [font-stretch:125%]"><span>GClifts</span><span>${esc(a.purpose)}</span></div>
+      <div class="mt-3.5 font-display text-[clamp(3rem,14vw,4.4rem)] leading-none font-black tracking-[.02em] tabular-nums [font-stretch:62%]">${a.code}</div>
+      <div class="text-sm font-semibold">Ask your driver to say this code before you get in.</div>
+      <div class="mt-4 grid grid-cols-[1fr_auto] items-end gap-x-3 gap-y-0.5"><div class="min-w-0"><h3 class="m-0 font-display text-[1.35rem] font-bold [font-stretch:110%]">${esc(d.name)}</h3><div>${esc(d.car)}</div></div>
+        ${a.eta===null?`<div class="text-right"><small class="block text-[.8rem] font-semibold">On the way</small></div>`:`<div class="text-right font-display text-[2rem] leading-none font-black tabular-nums [font-stretch:80%]"><span id="etan">${a.eta}</span><small class="block font-body text-[.8rem] font-semibold">min away</small></div>`}</div>
+      <div class="mt-3.5 border-t-2 border-dashed border-permit-ink pt-2.5 text-sm">${a.why.length?esc(a.why.join(". "))+".":"Closest driver who's online."}</div>
     </div>
-    <div class="form stack">
-      <h3>Message ${esc(n)}</h3>
-      <div class="chat" id="chat">${bubbles()}</div>
-      <div class="typing" id="typing"></div>
-      <form class="share" id="chatf"><input id="chatin" placeholder="Write a message" aria-label="Message ${esc(n)}" autocomplete="off"><button class="quiet">Send</button></form>
-      <p class="hint">Only you and ${esc(n)} can see these messages. In this demo, ${esc(n)}'s replies are automatic.</p>
+    <div class="${UI.form}">
+      <h3 class="${UI.h3}">Message ${esc(n)}</h3>
+      <div class="flex max-h-[260px] flex-col gap-2 overflow-y-auto px-0.5 py-1" id="chat">${bubbles()}</div>
+      <div class="min-h-[1.2em] text-[.82rem] text-soft" id="typing"></div>
+      <form class="flex items-stretch gap-2" id="chatf"><input id="chatin" class="${UI.input} min-w-0" placeholder="Write a message" aria-label="Message ${esc(n)}" autocomplete="off"><button class="${UI.quiet}">Send</button></form>
+      <p class="${UI.hint}">Only you and ${esc(n)} can see these messages. In this demo, ${esc(n)}'s replies are automatic.</p>
     </div>
-    <div class="form stack">
-      <div class="stack tight"><h3>How ${esc(n)} likes to be paid</h3>
-        <div class="pays">${d.pay.map(p=>`<span class="pay ${ok.includes(p)?"yes":""}">${esc(p)}</span>`).join("")}</div>
-        <p class="hint">${ok.length?`Highlighted options match what you said you can pay with.`:`None of these match what you picked. Sort it out with ${esc(n)} before the ride.`} Payment happens between you two, outside the app. ${esc(n)} confirms in GClifts when it arrives.</p></div>
-      <div class="stack tight"><span class="legend">Share your trip</span>
-        <div class="share"><input id="sharetxt" readonly value="${esc(shareText)}" aria-label="Trip details to share"><button class="quiet" id="copy">Copy</button></div></div>
+    <div class="${UI.form}">
+      <div class="${UI.tight}"><h3 class="${UI.h3}">How ${esc(n)} likes to be paid</h3>
+        <div class="${UI.pays}">${payTags(d.pay,ok)}</div>
+        <p class="${UI.hint}">${ok.length?`Highlighted options match what you said you can pay with.`:`None of these match what you picked. Sort it out with ${esc(n)} before the ride.`} Payment happens between you two, outside the app. ${esc(n)} confirms in GClifts when it arrives.</p></div>
+      <div class="${UI.tight}"><span class="${UI.legend}">Share your trip</span>
+        <div class="flex items-stretch gap-2"><input id="sharetxt" class="${UI.input} min-w-0" readonly value="${esc(shareText)}" aria-label="Trip details to share"><button class="${UI.quiet}" id="copy">Copy</button></div></div>
     </div>
-    <div class="form stack">
-      <h3>When you arrive</h3>
-      <div class="row" style="align-items:stretch">
-        <label for="paid" style="flex:1;min-width:150px">You paid with<select id="paid">${d.pay.map(p=>`<option${p===ok[0]?" selected":""}>${esc(p)}</option>`).join("")}</select></label>
-        <label for="rate" style="flex:1;min-width:120px">Rating<select id="rate">${[5,4,3,2,1].map(v=>`<option value="${v}">${v} star${v>1?"s":""}</option>`).join("")}</select></label>
+    <div class="${UI.form}">
+      <h3 class="${UI.h3}">When you arrive</h3>
+      <div class="grid gap-3 sm:grid-cols-2">
+        <label for="paid" class="${UI.label}">You paid with<select id="paid" class="${UI.input}">${d.pay.map(p=>`<option${p===ok[0]?" selected":""}>${esc(p)}</option>`).join("")}</select></label>
+        <label for="rate" class="${UI.label}">Rating<select id="rate" class="${UI.input}">${[5,4,3,2,1].map(v=>`<option value="${v}">${v} star${v>1?"s":""}</option>`).join("")}</select></label>
       </div>
-      <button class="go" id="done">Finish ride and save to log</button>
-      <button class="quiet" id="cancel">Cancel this ride</button>
+      <button class="${UI.go}" id="done">Finish ride and save to log</button>
+      <button class="${UI.quiet}" id="cancel">Cancel this ride</button>
     </div></div>`;
   const box=$("#chat");box.scrollTop=box.scrollHeight;
   $("#chatf").onsubmit=e=>{e.preventDefault();const t=$("#chatin").value.trim();if(!t)return;
@@ -521,40 +412,73 @@ function activeView(){
       a.chat.push({who:"them",text:r,t:Date.now()});save();const b=$("#chat");if(!b)return;$("#typing").textContent="";b.innerHTML=bubbles();b.scrollTop=b.scrollHeight},1400)};
   $("#copy").onclick=async()=>{const i=$("#sharetxt");try{await navigator.clipboard.writeText(i.value);toast("Trip details copied")}catch(e){i.select();toast("Selected. Press copy on your keyboard.")}};
   $("#done").onclick=()=>{S.log.unshift({id:"r"+Date.now(),riderEmail:S.user.email,driverId:d.id,from:a.from,to:a.to,purpose:a.purpose,when:a.when,
-      paidWith:$("#paid").value,rating:+$("#rate").value,confirmed:false,endedAt:Date.now()});
+      paidWith:$("#paid").value,rating:+$("#rate").value,confirmed:false,endedAt:Date.now(),
+      riderName:S.user.name,chat:a.chat.map(m=>({...m,who:m.who==="me"?"rider":"driver"}))});
     S.active=null;S.tab="log";save();render();toast(`Ride saved. Waiting for ${n} to confirm your payment.`)};
   $("#cancel").onclick=()=>{S.active=null;save();render();toast("Ride canceled")};
 }
 
+const RIDER_REPLIES=[[/paid|pay|sent|money|venmo|paypal|cash ?app/i,"I sent it right after the ride. Let me know if it doesn't show up."],[/thank|thx|ty\b/i,"Thank you for the ride!"],[/.*/,"Sounds good!"]];
+function driverBubbles(r){return r.chat.map(m=>`<div class="${m.who==="driver"?MSG.me:MSG.them}">${esc(m.text)}<small class="mt-0.5 block text-[.72rem] opacity-75">${m.who==="driver"?"You":esc(first(r.riderName))}, ${new Date(m.t).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}</small></div>`).join("")}
+function riderCard(r){const n=esc(first(r.riderName));
+  return `<li class="flex flex-col gap-3 rounded-2xl border border-rule bg-panel p-4" data-r="${esc(r.id)}">
+    <div class="flex items-center gap-3"><span class="${UI.face}">${esc(initials(r.riderName))}</span>
+      <div class="min-w-0 flex-1"><h3 class="${UI.h3}">${esc(r.riderName)}</h3><div class="${UI.sub}">${esc(r.from)} to ${esc(r.to)} · ${fmtDay(r.when)}</div></div></div>
+    <div class="flex flex-wrap items-center justify-between gap-2"><span class="text-sm">Paid with <b>${esc(r.paidWith)}</b> · ${r.confirmed?`<span class="text-[.82rem] font-bold text-route">You confirmed it</span>`:`<span class="text-[.82rem] font-bold text-alert">Needs your confirmation</span>`}</span>
+      ${r.confirmed?"":`<button type="button" class="${UI.quiet}" data-act="confirm">Confirm payment received</button>`}</div>
+    <details class="border-t border-rule pt-3"><summary class="min-h-11 cursor-pointer content-center text-sm font-bold text-route">Messages with ${n} (${r.chat.length})</summary>
+      <div class="mt-2 flex flex-col gap-2">
+        <div class="flex max-h-[220px] flex-col gap-2 overflow-y-auto px-0.5 py-1" data-chat>${driverBubbles(r)}</div>
+        <form class="flex items-stretch gap-2" data-act="send"><input id="dm-${esc(r.id)}" class="${UI.input} min-w-0" placeholder="Write to ${n}" aria-label="Message ${n}" autocomplete="off"><button class="${UI.quiet}">Send</button></form>
+      </div></details>
+  </li>`}
+
 function driveView(){
   const me=S.drivers.find(d=>d.email===S.user.email);
+  const riders=me?S.log.filter(r=>r.driverId===me.id).map(r=>({...r,chat:r.chat||[],riderName:r.riderName||"A rider"})).sort((a,b)=>new Date(b.when)-new Date(a.when)):[];
   const essentials=PURPOSE.filter(p=>p[1]).map(p=>p[0]).join(", ").toLowerCase();
-  $("#view").innerHTML=`<div class="stack">
-    <h2>Drive for classmates</h2>
-    <p class="lede">Riders are matched with you automatically and see how you like to be paid. After each ride you confirm the payment arrived, so you're not chasing anyone in a group chat. Your last open seat is held for essential trips (${essentials}).</p>
-    <div class="form stack">
-      <label for="online" class="row" style="flex-direction:row;justify-content:space-between"><span>I'm available to drive now</span>
-        <input id="online" type="checkbox" style="width:22px;height:22px" ${me?.online?"checked":""}></label>
-      <div class="row" style="align-items:stretch">
-        <label for="car" style="flex:2;min-width:170px">Car<input id="car" value="${esc(me?.car||"")}" placeholder="Color, make and model"></label>
-        <label for="seats" style="flex:1;min-width:90px">Open seats<input id="seats" type="number" min="1" max="6" value="${me?.seats||3}"></label>
+  $("#view").innerHTML=`<div class="${UI.stack}">
+    <h2 class="${UI.h2}">Drive for classmates</h2>
+    <p class="${UI.lede}">Riders are matched with you automatically and see how you like to be paid. After each ride you confirm the payment arrived, so you're not chasing anyone in a group chat. Your last open seat is held for essential trips (${essentials}).</p>
+    <div class="${UI.form}">
+      <label for="online" class="flex min-h-11 items-center justify-between gap-3 text-sm font-bold"><span>I'm available to drive now</span>
+        <input id="online" type="checkbox" class="size-[22px] flex-none accent-route" ${me?.online?"checked":""}></label>
+      <div class="grid gap-3 sm:grid-cols-[2fr_1fr]">
+        <label for="car" class="${UI.label}">Car<input id="car" class="${UI.input}" value="${esc(me?.car||"")}" placeholder="Color, make and model"></label>
+        <label for="seats" class="${UI.label}">Open seats<input id="seats" class="${UI.input}" type="number" inputmode="numeric" min="1" max="6" value="${me?.seats||3}"></label>
       </div>
-      <label for="zone">General area<select id="zone">${opts(me?.zone||"Maxwell Student Union")}</select></label>
-      <div class="stack tight"><span class="legend">Payment you prefer</span>
-        <div class="chips" id="dpay">${PAY.map(p=>`<button type="button" class="chip" aria-pressed="${(me?.pay||["Venmo"]).includes(p)}">${p}</button>`).join("")}</div></div>
-      <p class="err" id="err"></p>
-      <button class="go" id="saveD">Save driver profile</button>
-    </div></div>`;
-  $("#dpay").onclick=e=>{const c=e.target.closest(".chip");if(c)c.setAttribute("aria-pressed",c.getAttribute("aria-pressed")!=="true")};
+      <label for="zone" class="${UI.label}">General area<select id="zone" class="${UI.input}">${opts(me?.zone||"Maxwell Student Union")}</select></label>
+      <div class="${UI.tight}"><span class="${UI.legend}">Payment you prefer</span>
+        <div class="${UI.chips}" id="dpay">${PAY.map(p=>`<button type="button" class="${UI.chip}" aria-pressed="${(me?.pay||["Venmo"]).includes(p)}">${p}</button>`).join("")}</div></div>
+      <p class="${UI.err}" id="err"></p>
+      <button class="${UI.go}" id="saveD">Save driver profile</button>
+    </div>
+    <div class="${UI.tight}"><h3 class="${UI.h3}">Your riders</h3>
+      ${me?`<p class="${UI.hint}">When a payment shows up in your ${esc(me.pay.join(" or "))} app, confirm it here. The rider sees it in their ride log.</p>
+      <ul class="flex flex-col gap-3" id="riders">${riders.map(riderCard).join("")||`<li class="${UI.hint}">No rides yet. Riders you're matched with show up here.</li>`}</ul>`
+      :`<p class="${UI.hint}">Save your driver profile to see the riders you're matched with, confirm their payments and message them.</p>`}</div>
+  </div>`;
+  const list=$("#riders");
+  if(list){
+    const rec=li=>S.log.find(r=>r.id===li.dataset.r);
+    list.onclick=e=>{const b=e.target.closest("[data-act=confirm]");if(!b)return;const r=rec(b.closest("li"));
+      r.confirmed=true;r.confirmedAt=Date.now();save();driveView();toast(`Payment from ${first(r.riderName||"your rider")} confirmed`)};
+    list.onsubmit=e=>{e.preventDefault();const f=e.target,li=f.closest("li"),r=rec(li),inp=f.querySelector("input"),t=inp.value.trim();if(!t)return;
+      r.chat=r.chat||[];r.chat.push({who:"driver",text:t,t:Date.now()});inp.value="";save();
+      const box=li.querySelector("[data-chat]"),sum=li.querySelector("summary"),show=()=>{const v={...r,riderName:r.riderName||"A rider"};box.innerHTML=driverBubbles(v);box.scrollTop=box.scrollHeight;sum.textContent=`Messages with ${first(v.riderName)} (${r.chat.length})`};show();
+      // Sample riders answer automatically; a rider on this browser reads it in their own account.
+      if(r.sample)setTimeout(()=>{r.chat.push({who:"rider",text:RIDER_REPLIES.find(([re])=>re.test(t))[1],t:Date.now()});save();if(li.isConnected)show()},1400)};
+  }
+  $("#dpay").onclick=e=>{const c=e.target.closest("button");if(c)c.setAttribute("aria-pressed",c.getAttribute("aria-pressed")!=="true")};
   $("#saveD").onclick=()=>{
-    const pay=[...document.querySelectorAll("#dpay .chip[aria-pressed=true]")].map(c=>c.textContent);
+    const pay=[...document.querySelectorAll("#dpay button[aria-pressed=true]")].map(c=>c.textContent);
     const car=$("#car").value.trim();
     if(!car)return $("#err").textContent="Add your car so riders can spot you.";
     if(!pay.length)return $("#err").textContent="Pick at least one way you'd like to be paid.";
     const data={name:S.user.name,email:S.user.email,car,
       seats:Math.max(1,+$("#seats").value||1),pay,online:$("#online").checked,zone:$("#zone").value};
     if(me)Object.assign(me,data);else S.drivers.push({id:"u-"+S.user.email,...data});
-    save();drawMap();toast(data.online?"Driver profile saved. You're available.":"Driver profile saved");
+    seedRidersFor(S.drivers.find(d=>d.email===S.user.email));save();driveView();drawMap();toast(data.online?"Driver profile saved. You're available.":"Driver profile saved");
   };
 }
 
@@ -564,19 +488,26 @@ function logView(){
   const people=Object.entries(by).sort((a,b)=>b[1].length-a[1].length);
   const payCount={};log.forEach(r=>payCount[r.paidWith]=(payCount[r.paidWith]||0)+1);
   const topPay=Object.entries(payCount).sort((a,b)=>b[1]-a[1])[0];
-  const fmt=w=>new Date(w).toLocaleDateString("en-US",{month:"short",day:"numeric"});
-  $("#view").innerHTML=`<div class="stack">
-    <h2>Ride log</h2>
-    ${log.length?`<p class="summary">${log.length} ride${log.length>1?"s":""} with ${people.length} driver${people.length>1?"s":""}. You pay with ${esc(topPay[0])} most often.</p>`:""}
-    <div class="stack tight"><h3>Drivers you've ridden with</h3>
-      <div class="profiles">${people.map(([id,rs])=>{const d=drv(id);if(!d)return"";const paid=[...new Set(rs.map(r=>r.paidWith))];
-        return profile(d,{paid,footer:`<span class="sub">Last ride ${new Date(rs[0].when).toLocaleDateString("en-US",{month:"short",day:"numeric"})}. You paid with ${paid.map(esc).join(", ")}.</span>`})}).join("")
-        ||`<p class="hint">No rides yet. After your first ride, that driver shows up here and gets matched with you first next time.</p>`}</div></div>
-    ${log.length?`<div class="stack tight"><h3>Every ride</h3><div class="scroll"><table>
+  const fmt=fmtDay,paystat=payStatus;
+  const name=r=>{const d=drv(r.driverId);return d?first(d.name):""};
+  $("#view").innerHTML=`<div class="${UI.stack}">
+    <h2 class="${UI.h2}">Ride log</h2>
+    ${log.length?`<p class="max-w-[36ch] font-display text-[1.15rem] leading-[1.35] font-bold [font-stretch:105%]">${log.length} ride${log.length>1?"s":""} with ${people.length} driver${people.length>1?"s":""}. You pay with ${esc(topPay[0])} most often.</p>`:""}
+    <div class="${UI.tight}"><h3 class="${UI.h3}">Drivers you've ridden with</h3>
+      <div class="${UI.profiles}">${people.map(([id,rs])=>{const d=drv(id);if(!d)return"";const paid=[...new Set(rs.map(r=>r.paidWith))];
+        return profile(d,{paid,footer:`<span class="${UI.sub}">Last ride ${fmt(rs[0].when)}. You paid with ${paid.map(esc).join(", ")}.</span>`})}).join("")
+        ||`<p class="${UI.hint}">No rides yet. After your first ride, that driver shows up here and gets matched with you first next time.</p>`}</div></div>
+    ${log.length?`<div class="${UI.tight}"><h3 class="${UI.h3}">Every ride</h3>
+      <ul class="flex flex-col sm:hidden *:border-t *:border-rule *:py-3">
+      ${log.map(r=>`<li><div class="flex justify-between gap-3"><span class="font-semibold">${esc(r.from)} to ${esc(r.to)}</span><span class="shrink-0 tabular-nums text-soft">${fmt(r.when)}</span></div>
+        <div class="${UI.sub}">${esc(r.purpose||"")}${r.purpose?" · ":""}${esc(name(r))} · ${esc(r.paidWith)} · <span class="text-[#c99400]">${"★".repeat(r.rating)}</span></div>
+        <div>${paystat(r)}</div></li>`).join("")}
+      </ul>
+      <div class="hidden overflow-x-auto sm:block"><table class="w-full min-w-[440px] border-collapse text-sm [&_td]:border-b [&_td]:border-rule [&_td]:px-2 [&_td]:py-2.5 [&_td]:text-left [&_th]:border-b [&_th]:border-rule [&_th]:px-2 [&_th]:py-2.5 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:text-soft">
       <thead><tr><th>Date</th><th>Trip</th><th>For</th><th>Driver</th><th>Payment</th><th>Rating</th></tr></thead><tbody>
-      ${log.map(r=>{const d=drv(r.driverId);return `<tr><td class="num">${fmt(r.when)}</td><td>${esc(r.from)} to ${esc(r.to)}</td><td>${esc(r.purpose||"")}</td><td>${esc(d?first(d.name):"")}</td><td>${esc(r.paidWith)} <span class="paystat ${r.confirmed?"ok":"wait"}">${r.confirmed?"Confirmed":"Waiting for driver"}</span></td><td class="num">${"★".repeat(r.rating)}</td></tr>`}).join("")}
+      ${log.map(r=>`<tr><td class="whitespace-nowrap tabular-nums">${fmt(r.when)}</td><td>${esc(r.from)} to ${esc(r.to)}</td><td>${esc(r.purpose||"")}</td><td>${esc(name(r))}</td><td>${esc(r.paidWith)} ${paystat(r)}</td><td class="whitespace-nowrap tabular-nums">${"★".repeat(r.rating)}</td></tr>`).join("")}
       </tbody></table></div></div>`:""}
-    <div class="row"><button class="quiet" id="reset">Reset my sample rides</button><button class="quiet" id="out">Sign out</button></div>
+    <div class="flex flex-wrap gap-2.5"><button class="${UI.quiet}" id="reset">Reset my sample rides</button><button class="${UI.quiet}" id="out">Sign out</button></div>
   </div>`;
   $("#reset").onclick=()=>{S.active=null;seedRidesFor(S.user.email);save();render();toast("Your sample rides were restored")};
   $("#out").onclick=()=>{pickedSchool=null;pending=null;S.user=null;S.active=null;S.tab="ride";save();render()};

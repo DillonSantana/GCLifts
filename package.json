@@ -1,0 +1,13 @@
+{
+  "name": "gclifts",
+  "private": true,
+  "description": "GClifts MVP: students-only rides for Georgia College & State University",
+  "scripts": {
+    "build": "tailwindcss -i styles/input.css -o styles/app.css --minify",
+    "dev": "tailwindcss -i styles/input.css -o styles/app.css --watch"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "4.1.11",
+    "tailwindcss": "4.1.11"
+  }
+}
