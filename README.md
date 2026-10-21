@@ -94,6 +94,8 @@ Open `index.html` in a browser. The compiled stylesheet, `styles/app.css`, is co
 | Tablets (640px to 1023px) | The map is still on top, and the column is limited to a comfortable reading width. Form fields sit side by side, and the ride log becomes a table. |
 | Laptops and desktops (1024px and up) | The map is on the left and stays in view while you scroll; the app is on the right. |
 
+The sign-in screens (choosing a school, email and code) have no map at any size: they're a single centered column. The map appears once you're signed in.
+
 Every size also:
 - Has buttons and chips at least 44px tall, so they're easy to tap.
 - Uses 16px text in form fields, so iPhones don't zoom in when you tap one.

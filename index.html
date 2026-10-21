@@ -11,10 +11,10 @@
 </head>
 <body class="min-h-dvh text-base">
 
-<!-- Layout: phones and tablets stack the map above the app; from lg up the map sits on the left and stays in view.
+<!-- Layout: the sign-in screens are one centered column with no map. Once signed in, phones and tablets stack the map above the app; from lg up the map sits on the left and stays in view.
      The one bold element is the matched ride, shown as a yellow rear-view-mirror parking hang tag. -->
-<div class="mx-auto grid max-w-2xl gap-5 pt-4 pb-10 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:gap-6 sm:pt-6 lg:max-w-6xl lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:items-start lg:gap-9 lg:pt-8 lg:pb-14">
-  <section class="min-w-0 lg:sticky lg:top-6" aria-label="Map">
+<div id="shell" class="mx-auto grid max-w-2xl gap-5 pt-4 pb-10 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:gap-6 sm:pt-6 lg:data-[signed]:max-w-6xl lg:data-[signed]:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:items-start lg:gap-9 lg:pt-8 lg:pb-14">
+  <section id="mapsec" class="min-w-0 lg:sticky lg:top-6" aria-label="Map">
     <div class="overflow-hidden rounded-2xl border border-rule bg-panel">
       <svg id="map" class="block h-auto w-full" viewBox="0 0 360 250" role="img" aria-label="Map of campus and nearby stops"></svg>
       <div id="mapcap" class="flex flex-wrap justify-between gap-x-3 gap-y-1 border-t border-rule px-4 py-3 text-sm text-soft [&_b]:text-ink [&_b]:tabular-nums"></div>
@@ -241,6 +241,8 @@ const code=()=>"GC-"+String(Math.floor(1000+Math.random()*9000));
 /* ---------- views ---------- */
 function render(){
   if(S.active&&!drv(S.active.driverId)){S.active=null;save();toast("Your driver is no longer available. Request a new ride.")}
+  // The sign-in screens are a single centered column; the map appears once the student is signed in.
+  $("#mapsec").hidden=!S.user;$("#shell").toggleAttribute("data-signed",!!S.user);
   $("#tabs").hidden=!S.user;
   $("#who").textContent=S.user?(S.user.school?S.user.school+", ":"")+S.user.email:"";
   document.querySelectorAll("#tabs button").forEach(b=>b.setAttribute("aria-current",b.dataset.tab===S.tab?"page":"false"));
