@@ -15,12 +15,25 @@ Milledgeville has limited public transit, and no rideshare apps are available. S
 - **Riders:** matched with a driver automatically, and every driver is a verified student.
 - **Drivers:** matched with riders automatically, and they confirm in the app when each rider's payment arrives. Riders and drivers can message each other.
 
-Visitor ──HTTPS──▶ CloudFront (edge cache, global)
-                        │  signed request (Origin Access Control)
-                        ▼
-                   S3 bucket (private, us-east-2)
-                     ├── index.html
-                     └── styles/app.css
+## GClifts: AWS services used
+
+Live in production (https://d3exvjki5n2jnm.cloudfront.net)
+
+Amazon S3: stores the app files (index.html and the compiled Tailwind CSS) in a private, encrypted bucket in us-east-2. Public access is blocked, so requests straight to S3 return 403.
+Amazon CloudFront: delivers the site worldwide over HTTPS only, with HTTP/2 and HTTP/3, gzip/Brotli compression and security headers. Plain HTTP redirects to HTTPS. We clear the cache on each deploy so students always get the latest version.
+CloudFront Origin Access Control and IAM: CloudFront signs its requests to S3 (SigV4), and the bucket policy only allows this one distribution to read from it.
+Developer tooling
+
+Kiro: the AI IDE we used to build, refactor and deploy the app.
+AWS CLI v2 with aws login: browser sign-in with no long-lived access keys. AWS STS confirms who's signed in.
+AWS Agent Toolkit and the AWS MCP server: give our AI coding assistant AWS skills and guidance while we build.
+Next step (designed, not built yet)
+
+Amazon Cognito: school-email sign-in, with a Lambda pre-signup check that only accepts @gcsu.edu and @bobcats.gcsu.edu addresses.
+Amazon DynamoDB: Users, Drivers and Rides tables.
+AWS Lambda and Amazon API Gateway: run the driver-matching score (past rides, payment compatibility, distance) on the server.
+Amazon Location Service: turns typed pickup and drop-off places into map locations and calculates real distance and drive time.
+Amazon SNS: texts drivers when a ride is requested.
 
 ### 1. Connect to your school
 - The student picks their school first. For the demo, the only option is **Georgia College & State University**.
