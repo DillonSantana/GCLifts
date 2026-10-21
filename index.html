@@ -304,13 +304,15 @@ function rideView(){
 
 const REPLIES=[[/where|which|spot|find/i,"I'll pull up right out front. Look for the {car}."],[/late|minute|wait|hold/i,"No problem, I'll wait a couple of minutes."],
   [/pay|venmo|paypal|cash ?app/i,"{pay} works for me. Send it after the ride."],[/thank|thx|ty\b/i,"Anytime!"],[/.*/,"Sounds good, see you soon."]];
+// Keyed by driver id, not stored on the driver, so browsers with a saved driver list get it too.
+const GREETING={d2:"Hi, im in a Blue Toyota RAV4. Im 3 minutes out. It will be $3. Venmo: @Alisha"};
 const MSG={
   me:"max-w-[80%] self-end rounded-[14px] rounded-br-[4px] bg-route px-3 py-2 text-[.92rem] leading-[1.4] [overflow-wrap:anywhere] text-panel",
   them:"max-w-[80%] self-start rounded-[14px] rounded-bl-[4px] border border-rule bg-ground px-3 py-2 text-[.92rem] leading-[1.4] [overflow-wrap:anywhere]",
 };
 function activeView(){
   const a=S.active,d=drv(a.driverId),ok=d.pay.filter(p=>a.pay.includes(p)),n=first(d.name);
-  if(!a.chat){a.chat=[{who:"them",text:`Hey, it's ${n}. I'm on my way in the ${d.car}.`,t:Date.now()}];save()}
+  if(!a.chat){a.chat=[{who:"them",text:GREETING[d.id]||`Hey, it's ${n}. I'm on my way in the ${d.car}.`,t:Date.now()}];save()}
   const shareText=`I'm riding with ${d.name} (${d.car}) from ${a.from} to ${a.to}. Ride code ${a.code}.${a.eta===null?"":` ETA ${a.eta} min.`} Sent from GClifts.`;
   const tm=t=>new Date(t).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"});
   const bubbles=()=>a.chat.map(m=>`<div class="${MSG[m.who]}">${esc(m.text)}<small class="mt-0.5 block text-[.72rem] opacity-75">${m.who==="me"?"You":esc(n)}, ${tm(m.t)}</small></div>`).join("");
