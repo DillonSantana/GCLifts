@@ -52,7 +52,7 @@ const seedLog=[
 
 let S;
 function fresh(){return{user:null,tab:"ride",drivers:structuredClone(seedDrivers),log:[],seeded:{},
-  draft:{from:"Maxwell Student Union",to:"Walmart Supercenter",pay:["Venmo"],prefer:null},active:null}}
+  draft:{from:"Napier",to:"Cap",pay:["Venmo"],prefer:null},active:null}}
 function load(){try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){} if(!S||!S.draft)S=fresh(); S.seeded=S.seeded||{}}
 // Each rider gets their own copy of the sample rides the first time they sign in on this browser.
 // Resetting replaces only the sample rides; rides the rider took themselves stay.
