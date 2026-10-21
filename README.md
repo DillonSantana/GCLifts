@@ -21,6 +21,7 @@ Live in production (https://d3exvjki5n2jnm.cloudfront.net)
 
 Amazon S3: stores the app files (index.html and the compiled Tailwind CSS) in a private, encrypted bucket in us-east-2. Public access is blocked, so requests straight to S3 return 403.
 Amazon CloudFront: delivers the site worldwide over HTTPS only, with HTTP/2 and HTTP/3, gzip/Brotli compression and security headers. Plain HTTP redirects to HTTPS. We clear the cache on each deploy so students always get the latest version.
+
 CloudFront Origin Access Control and IAM: CloudFront signs its requests to S3 (SigV4), and the bucket policy only allows this one distribution to read from it.
 Developer tooling
 
