@@ -392,6 +392,20 @@ function activeView(){
 
 const RIDER_REPLIES=[[/paid|pay|sent|money|venmo|paypal|cash ?app/i,"I sent it right after the ride. Let me know if it doesn't show up."],[/thank|thx|ty\b/i,"Thank you for the ride!"],[/.*/,"Sounds good!"]];
 function driverBubbles(r){return r.chat.map(m=>`<div class="${m.who==="driver"?MSG.me:MSG.them}">${esc(m.text)}<small class="mt-0.5 block text-[.72rem] opacity-75">${m.who==="driver"?"You":esc(first(r.riderName))}, ${new Date(m.t).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}</small></div>`).join("")}
+const REPORTS=["Didn't pay","Too loud","Threw up","Other"];
+// Shown in place of the report form once the driver has sent one for this ride.
+const reportNote=(r,n)=>`<p class="text-sm"><b class="text-alert">You reported ${n}:</b> ${esc(r.report.reason)}${r.report.note?`. "${esc(r.report.note)}"`:""}</p>`;
+function reportForm(r,n){
+  return `<details class="border-t border-rule pt-3"><summary class="min-h-11 cursor-pointer content-center text-sm font-bold text-soft">Report ${n}</summary>
+    <form class="mt-2 flex flex-col gap-3" data-act="report">
+      <fieldset class="flex flex-col gap-2"><legend class="${UI.legend}">What happened?</legend>
+        <div class="${UI.chips}">${REPORTS.map(x=>`<label><input type="radio" name="reason-${esc(r.id)}" value="${esc(x)}" class="peer sr-only"><span class="inline-flex min-h-11 cursor-pointer items-center rounded-full border-[1.5px] border-rule bg-panel px-3.5 py-2 text-sm font-semibold text-ink peer-checked:border-alert peer-checked:bg-alert peer-checked:text-panel peer-focus-visible:outline-[3px] peer-focus-visible:outline-route">${esc(x)}</span></label>`).join("")}</div></fieldset>
+      <label class="${UI.label}"><span>Details <span class="font-normal text-soft" data-need>(optional)</span></span><textarea rows="2" maxlength="280" class="${UI.input} resize-y" placeholder="Anything GClifts should know"></textarea></label>
+      <p class="${UI.err}" data-err></p>
+      <button class="min-h-11 self-start rounded-lg border-[1.5px] border-alert px-3.5 py-2 text-sm font-bold text-alert hover:bg-alert hover:text-panel">Send report</button>
+      <p class="${UI.hint}">Riders don't see reports. In this demo, a report is saved with the ride for GClifts to review.</p>
+    </form></details>`;
+}
 function riderCard(r){const n=esc(first(r.riderName));
   return `<li class="flex flex-col gap-3 rounded-2xl border border-rule bg-panel p-4" data-r="${esc(r.id)}">
     <div class="flex items-center gap-3"><span class="${UI.face}">${esc(initials(r.riderName))}</span>
@@ -404,6 +418,7 @@ function riderCard(r){const n=esc(first(r.riderName));
         <div class="flex max-h-[220px] flex-col gap-2 overflow-y-auto px-0.5 py-1" data-chat>${driverBubbles(r)}</div>
         <form class="flex items-stretch gap-2" data-act="send"><input id="dm-${esc(r.id)}" class="${UI.input} min-w-0" placeholder="Write to ${n}" aria-label="Message ${n}" autocomplete="off"><button class="${UI.quiet}">Send</button></form>
       </div></details>
+    ${r.report?reportNote(r,n):reportForm(r,n)}
   </li>`}
 
 function driveView(){
@@ -435,11 +450,21 @@ function driveView(){
     const rec=li=>S.log.find(r=>r.id===li.dataset.r);
     list.onclick=e=>{const b=e.target.closest("[data-act=confirm]");if(!b)return;const r=rec(b.closest("li"));
       r.confirmed=true;r.confirmedAt=Date.now();save();driveView();toast(`Payment from ${first(r.riderName||"your rider")} confirmed`)};
-    list.onsubmit=e=>{e.preventDefault();const f=e.target,li=f.closest("li"),r=rec(li),inp=f.querySelector("input"),t=inp.value.trim();if(!t)return;
+    list.onchange=e=>{const f=e.target.closest("[data-act=report]");if(!f||e.target.type!=="radio")return;
+      f.querySelector("[data-need]").textContent=e.target.value==="Other"?"(required for Other)":"(optional)";f.querySelector("[data-err]").textContent=""};
+    list.onsubmit=e=>{e.preventDefault();const f=e.target,li=f.closest("li"),r=rec(li);
+      if(f.dataset.act==="report")return sendReport(f,r);
+      const inp=f.querySelector("input"),t=inp.value.trim();if(!t)return;
       r.chat=r.chat||[];r.chat.push({who:"driver",text:t,t:Date.now()});inp.value="";save();
       const box=li.querySelector("[data-chat]"),sum=li.querySelector("summary"),show=()=>{const v={...r,riderName:r.riderName||"A rider"};box.innerHTML=driverBubbles(v);box.scrollTop=box.scrollHeight;sum.textContent=`Messages with ${first(v.riderName)} (${r.chat.length})`};show();
       // Sample riders answer automatically; a rider on this browser reads it in their own account.
       if(r.sample)setTimeout(()=>{r.chat.push({who:"rider",text:RIDER_REPLIES.find(([re])=>re.test(t))[1],t:Date.now()});save();if(li.isConnected)show()},1400)};
+  }
+  function sendReport(f,r){
+    const reason=f.querySelector("input:checked")?.value,note=f.querySelector("textarea").value.trim(),err=f.querySelector("[data-err]");
+    if(!reason)return err.textContent="Pick what happened.";
+    if(reason==="Other"&&!note)return err.textContent="Add a few words about what happened.";
+    r.report={reason,note,at:Date.now()};save();driveView();toast(`Report about ${first(r.riderName||"your rider")} sent`);
   }
   $("#dpay").onclick=e=>{const c=e.target.closest("button");if(c)c.setAttribute("aria-pressed",c.getAttribute("aria-pressed")!=="true")};
   $("#saveD").onclick=()=>{
