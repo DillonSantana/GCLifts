@@ -1,5 +1,5 @@
-# GClifts MVP: https://d3exvjki5n2jnm.cloudfront.net
-
+# GClifts MVP: 
+https://d3exvjki5n2jnm.cloudfront.net
 
 A students-only ride-share for Georgia College & State University. Students get rides from verified classmates to the places that matter.
 
