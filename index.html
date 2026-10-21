@@ -167,7 +167,8 @@ th{font-size:.8rem;color:var(--soft);font-weight:600}
 .codebox{font:800 1.6rem var(--display);font-stretch:70%;letter-spacing:.3em;text-align:center}
 .demo{background:var(--campus);border-radius:10px;padding:10px 12px;font-size:.88rem}
 .paystat{font-size:.82rem;font-weight:700}
-.paystat.ok{color:var(--route)} .paystat.wait{color:var(--soft)}
+.paystat.ok{color:var(--route)} .paystat.wait,.paystat.sim{color:var(--soft)}
+.paystat.sim{font-style:italic}
 </style>
 </head>
 <body>
@@ -230,8 +231,11 @@ function seedRidesFor(email){S.log=S.log.filter(r=>r.riderEmail!==email);
 const myLog=()=>S.user?S.log.filter(r=>r.riderEmail===S.user.email).sort((a,b)=>new Date(b.when)-new Date(a.when)):[];
 // One seat is in use while the signed-in rider has an active ride with this driver.
 const openSeats=d=>d.seats-(S.active&&S.active.driverId===d.id?1:0);
+// Sample drivers aren't real people, so nobody can confirm their payments. Those rides are auto-confirmed and
+// flagged as simulated. Rides with a real classmate's driver profile wait until that driver confirms in the Drive tab.
+const isSampleDriver=id=>seedDrivers.some(d=>d.id===id);
 function confirmPending(){if(!S)return;let changed=false;
-  S.log.forEach(r=>{if(!r.confirmed&&r.endedAt&&Date.now()-r.endedAt>3000){r.confirmed=true;changed=true}});
+  S.log.forEach(r=>{if(!r.confirmed&&r.endedAt&&isSampleDriver(r.driverId)&&Date.now()-r.endedAt>3000){r.confirmed=true;r.simulated=true;changed=true}});
   if(changed){save();if(S.user&&S.tab==="log"&&!S.active)render()}}
 setInterval(confirmPending,1000);
 const isEssential=p=>!!(PURPOSE.find(x=>x[0]===p)||[])[1];
@@ -528,6 +532,7 @@ function activeView(){
 
 function driveView(){
   const me=S.drivers.find(d=>d.email===S.user.email);
+  const toConfirm=me?S.log.filter(r=>r.driverId===me.id&&!r.confirmed):[];
   const essentials=PURPOSE.filter(p=>p[1]).map(p=>p[0]).join(", ").toLowerCase();
   $("#view").innerHTML=`<div class="stack">
     <h2>Drive for classmates</h2>
@@ -544,7 +549,14 @@ function driveView(){
         <div class="chips" id="dpay">${PAY.map(p=>`<button type="button" class="chip" aria-pressed="${(me?.pay||["Venmo"]).includes(p)}">${p}</button>`).join("")}</div></div>
       <p class="err" id="err"></p>
       <button class="go" id="saveD">Save driver profile</button>
-    </div></div>`;
+    </div>
+    ${toConfirm.length?`<div class="stack tight"><h3>Payments to confirm</h3>
+      ${toConfirm.map(r=>`<div class="row" style="justify-content:space-between;align-items:center">
+        <span>${esc(r.from)} to ${esc(r.to)}, paid with ${esc(r.paidWith)}</span>
+        <button class="quiet" data-confirm="${esc(r.id)}">I got paid</button></div>`).join("")}</div>`:""}
+  </div>`;
+  $("#view").querySelectorAll("[data-confirm]").forEach(b=>b.onclick=()=>{const r=S.log.find(x=>x.id===b.dataset.confirm);
+    if(r){r.confirmed=true;save();render();toast("Payment confirmed")}});
   $("#dpay").onclick=e=>{const c=e.target.closest(".chip");if(c)c.setAttribute("aria-pressed",c.getAttribute("aria-pressed")!=="true")};
   $("#saveD").onclick=()=>{
     const pay=[...document.querySelectorAll("#dpay .chip[aria-pressed=true]")].map(c=>c.textContent);
@@ -556,6 +568,12 @@ function driveView(){
     if(me)Object.assign(me,data);else S.drivers.push({id:"u-"+S.user.email,...data});
     save();drawMap();toast(data.online?"Driver profile saved. You're available.":"Driver profile saved");
   };
+}
+
+function payStatus(r){
+  if(!r.confirmed)return `<span class="paystat wait">Waiting for driver</span>`;
+  if(r.simulated||r.sample)return `<span class="paystat sim" title="Sample driver: this confirmation was simulated, not made by a real driver">Confirmed (simulated)</span>`;
+  return `<span class="paystat ok">Confirmed by driver</span>`;
 }
 
 function logView(){
@@ -574,12 +592,13 @@ function logView(){
         ||`<p class="hint">No rides yet. After your first ride, that driver shows up here and gets matched with you first next time.</p>`}</div></div>
     ${log.length?`<div class="stack tight"><h3>Every ride</h3><div class="scroll"><table>
       <thead><tr><th>Date</th><th>Trip</th><th>For</th><th>Driver</th><th>Payment</th><th>Rating</th></tr></thead><tbody>
-      ${log.map(r=>{const d=drv(r.driverId);return `<tr><td class="num">${fmt(r.when)}</td><td>${esc(r.from)} to ${esc(r.to)}</td><td>${esc(r.purpose||"")}</td><td>${esc(d?first(d.name):"")}</td><td>${esc(r.paidWith)} <span class="paystat ${r.confirmed?"ok":"wait"}">${r.confirmed?"Confirmed":"Waiting for driver"}</span></td><td class="num">${"★".repeat(r.rating)}</td></tr>`}).join("")}
+      ${log.map(r=>{const d=drv(r.driverId);return `<tr><td class="num">${fmt(r.when)}</td><td>${esc(r.from)} to ${esc(r.to)}</td><td>${esc(r.purpose||"")}</td><td>${esc(d?first(d.name):"")}</td><td>${esc(r.paidWith)} ${payStatus(r)}</td><td class="num">${"★".repeat(r.rating)}</td></tr>`}).join("")}
       </tbody></table></div></div>`:""}
     <div class="row"><button class="quiet" id="reset">Reset my sample rides</button><button class="quiet" id="out">Sign out</button></div>
   </div>`;
   $("#reset").onclick=()=>{S.active=null;seedRidesFor(S.user.email);save();render();toast("Your sample rides were restored")};
-  $("#out").onclick=()=>{pickedSchool=null;pending=null;S.user=null;S.active=null;S.tab="ride";save();render()};
+  $("#out").onclick=()=>{const me=S.drivers.find(d=>d.email===S.user.email);if(me)me.online=false;
+    pickedSchool=null;pending=null;S.user=null;S.active=null;S.tab="ride";save();render()};
 }
 
 $("#tabs").onclick=e=>{const b=e.target.closest("button");if(!b)return;S.tab=b.dataset.tab;save();render()};
