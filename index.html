@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>GClifts</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Public+Sans:wght@400;600;700&display=swap">
+<style>
+/* Layout: map of campus + town on the left (sticky on desktop, a strip on phones); the app column on the right.
+   The one bold element is the matched ride, shown as a yellow rear-view-mirror parking hang tag. */
+:root{
+  --ground:#eef1ec; --panel:#ffffff; --ink:#17211d; --soft:#5d6b65; --rule:#d5dcd6;
+  --permit:#f5c518; --permit-ink:#1c1a10; --route:#0f766e; --road:#c9d2cb; --campus:#dfe9e1; --alert:#b4374f;
+  --display:"Archivo",system-ui,sans-serif; --body:"Public Sans",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ground:#0f1513; --panel:#18201d; --ink:#e7ede9; --soft:#97a69f; --rule:#2a3631;
+  --permit:#f5c518; --permit-ink:#1c1a10; --route:#4fc1b4; --road:#2c3833; --campus:#1b2924; --alert:#f07d93; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --ground:#0f1513; --panel:#18201d; --ink:#e7ede9; --soft:#97a69f; --rule:#2a3631;
+  --permit:#f5c518; --permit-ink:#1c1a10; --route:#4fc1b4; --road:#2c3833; --campus:#1b2924; --alert:#f07d93; color-scheme:dark}
+
+[hidden]{display:none!important}
+body{background:var(--ground);color:var(--ink);font:16px/1.55 var(--body)}
+.shell{max-width:1100px;margin:0 auto;display:grid;gap:20px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:18px 40px}
+@media (min-width:900px){.shell{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:36px;align-items:start;padding-block:32px 56px}
+  .mapcol{position:sticky;top:24px}}
+.mapcol,.appcol{min-width:0}
+
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance}
+h1{font-size:clamp(2.1rem,6vw,3.3rem);line-height:.98;font-weight:850;font-stretch:125%;letter-spacing:-.02em}
+h2{font-size:1.55rem;line-height:1.1;font-weight:800;font-stretch:112%}
+h3{font-size:1.05rem;font-weight:700;font-stretch:100%}
+p{margin:0}
+.lede{color:var(--soft);max-width:44ch}
+.stack{display:flex;flex-direction:column;gap:16px}
+.tight{gap:8px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+/* masthead + nav */
+.mast{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.logo{font:900 1.5rem var(--display);font-stretch:125%;letter-spacing:-.03em;display:flex;align-items:center;gap:8px}
+.logo i{width:22px;height:22px;border-radius:6px 6px 11px 11px;background:var(--permit);display:inline-block;position:relative}
+.logo i::after{content:"";position:absolute;top:4px;left:50%;width:6px;height:6px;margin-left:-3px;border-radius:50%;background:var(--ground)}
+.whoami{color:var(--soft);font-size:.85rem}
+nav.tabs{display:flex;gap:4px;border-bottom:1.5px solid var(--rule)}
+nav.tabs button{background:none;border:0;border-bottom:3px solid transparent;margin-bottom:-1.5px;border-radius:0;
+  padding:10px 12px;font:700 .95rem var(--body);color:var(--soft);cursor:pointer}
+nav.tabs button[aria-current="page"]{color:var(--ink);border-bottom-color:var(--route)}
+
+/* controls */
+label{font-weight:700;font-size:.88rem;display:flex;flex-direction:column;gap:6px}
+input,select{font:inherit;font-weight:400;color:var(--ink);background:var(--panel);border:1.5px solid var(--rule);border-radius:8px;padding:11px 12px;width:100%}
+:focus-visible{outline:3px solid var(--route);outline-offset:2px}
+button{font:700 1rem var(--body);cursor:pointer}
+.go{background:var(--ink);color:var(--ground);border:0;border-radius:10px;padding:15px 18px;width:100%;font-size:1.05rem}
+.go:hover{background:var(--route)}
+.quiet{background:none;border:1.5px solid var(--rule);color:var(--ink);border-radius:8px;padding:9px 13px;font-size:.9rem}
+.quiet:hover{border-color:var(--ink)}
+.err{color:var(--alert);font-size:.9rem;min-height:1.3em}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font:600 .88rem var(--body);padding:7px 12px;border-radius:999px;border:1.5px solid var(--rule);background:var(--panel);color:var(--ink)}
+.chip[aria-pressed="true"]{background:var(--route);border-color:var(--route);color:var(--panel)}
+.legend{font-weight:700;font-size:.88rem}
+.hint{color:var(--soft);font-size:.85rem}
+.trip{display:grid;grid-template-columns:18px minmax(0,1fr);gap:0 12px;align-items:center}
+.trip .pin{width:12px;height:12px;border-radius:50%;justify-self:center}
+.trip .a{border:3px solid var(--route);background:var(--panel)}
+.trip .b{background:var(--permit);box-shadow:0 0 0 2px var(--permit-ink) inset}
+.trip .line{width:2px;height:14px;background:var(--rule);justify-self:center}
+.form{background:var(--panel);border:1px solid var(--rule);border-radius:14px;padding:18px}
+
+/* people */
+.person{display:flex;gap:12px;align-items:center}
+.person>div{min-width:0;flex:1}
+.face{width:42px;height:42px;border-radius:50%;flex:none;display:grid;place-items:center;font:800 .95rem var(--display);font-stretch:110%;background:var(--campus);color:var(--route);border:1.5px solid var(--rule)}
+.sub{color:var(--soft);font-size:.88rem}
+.pays{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.pay{font-size:.78rem;font-weight:600;padding:2px 8px;border-radius:5px;background:var(--ground);border:1px solid var(--rule);color:var(--soft)}
+.pay.yes{color:var(--route);border-color:var(--route)}
+.list{display:flex;flex-direction:column}
+.list>*{padding-block:12px;border-top:1px solid var(--rule)}
+.pick{background:none;border:0;text-align:left;color:inherit;padding-inline:0;width:100%;font:inherit}
+.pick[aria-pressed="true"] .face{background:var(--route);color:var(--panel);border-color:var(--route)}
+.pick .chosen{display:none;color:var(--route);font-weight:700;font-size:.85rem}
+.pick[aria-pressed="true"] .chosen{display:inline}
+
+/* driver profile cards */
+.profiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+.prof{position:relative;display:flex;flex-direction:column;gap:12px;background:var(--panel);border:1.5px solid var(--rule);border-radius:14px;padding:16px;text-align:left;color:var(--ink);font:inherit;width:100%}
+button.prof{cursor:pointer}
+button.prof:hover{border-color:var(--soft)}
+button.prof[aria-pressed="true"]{border-color:var(--route);box-shadow:0 0 0 2px var(--route) inset}
+.prof .top{display:flex;gap:12px;align-items:center}
+.prof .top>div{min-width:0;flex:1}
+.av{width:52px;height:52px;border-radius:50%;flex:none;display:grid;place-items:center;font:850 1.1rem var(--display);font-stretch:115%;color:#fff;position:relative}
+.av .live{position:absolute;right:0;bottom:1px;width:13px;height:13px;border-radius:50%;background:var(--soft);border:2.5px solid var(--panel)}
+.av .live.on{background:#22a06b}
+.prof h3{font-size:1.1rem;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.ver{display:inline-flex;align-items:center;gap:3px;font:700 .72rem var(--body);color:var(--route);background:var(--campus);border-radius:999px;padding:2px 7px}
+.ver svg{width:11px;height:11px}
+.prof .car{font-size:.88rem;color:var(--soft);overflow-wrap:anywhere}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);padding-block:8px}
+.stats div{display:flex;flex-direction:column;align-items:flex-start}
+.stats div+div{padding-left:10px;border-left:1px solid var(--rule)}
+.stats b{font:800 1.15rem var(--display);font-stretch:90%;font-variant-numeric:tabular-nums}
+.stats span{font-size:.75rem;color:var(--soft)}
+.stars{color:#c99400}
+.prof .foot{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.req{font:700 .85rem var(--body);color:var(--route)}
+
+/* map */
+.map{background:var(--panel);border:1px solid var(--rule);border-radius:16px;overflow:hidden}
+.map svg{display:block;width:100%;height:auto}
+.map .cap{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 16px;border-top:1px solid var(--rule);font-size:.88rem;color:var(--soft)}
+.map .cap b{color:var(--ink);font-variant-numeric:tabular-nums}
+@media (max-width:899px){.mapcol{order:-1}}
+
+/* the hang tag */
+.tag{position:relative;background:var(--permit);color:var(--permit-ink);border-radius:26px 26px 14px 14px;padding:58px 22px 22px;
+  max-width:360px;width:100%;margin-inline:auto;box-shadow:0 18px 30px -18px rgba(40,34,0,.55)}
+.tag::before{content:"";position:absolute;top:18px;left:50%;width:30px;height:30px;margin-left:-15px;border-radius:50%;background:var(--ground);box-shadow:inset 0 2px 4px rgba(0,0,0,.25)}
+.tag .issuer{font:800 .95rem var(--display);font-stretch:125%;display:flex;justify-content:space-between;border-bottom:2px solid var(--permit-ink);padding-bottom:8px}
+.tag .code{font:900 clamp(3rem,14vw,4.4rem)/1 var(--display);font-stretch:62%;letter-spacing:.02em;margin-top:14px;font-variant-numeric:tabular-nums}
+.tag .codehint{font-size:.85rem;font-weight:600}
+.tag .who{margin-top:16px;display:grid;grid-template-columns:1fr auto;gap:2px 12px;align-items:end}
+.tag .who h3{font-size:1.35rem;font-stretch:110%}
+.tag .eta{font:900 2rem/1 var(--display);font-stretch:80%;text-align:right;font-variant-numeric:tabular-nums}
+.tag .eta small{display:block;font:600 .8rem var(--body)}
+.tag .why{margin-top:14px;padding-top:10px;border-top:2px dashed var(--permit-ink);font-size:.88rem}
+@media (prefers-reduced-motion:no-preference){.tag{animation:swing 1.1s cubic-bezier(.3,1.6,.5,1) both;transform-origin:50% 33px}
+  @keyframes swing{0%{transform:rotate(-9deg)}55%{transform:rotate(3deg)}100%{transform:rotate(0)}}}
+
+table{width:100%;border-collapse:collapse;font-size:.9rem;min-width:440px}
+th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--rule)}
+th{font-size:.8rem;color:var(--soft);font-weight:600}
+.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.scroll{overflow-x:auto}
+.summary{font:700 1.15rem/1.35 var(--display);font-stretch:105%;max-width:36ch}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--ground);padding:11px 16px;border-radius:10px;font-size:.92rem;font-weight:600;z-index:5}
+.share{display:flex;gap:8px;align-items:stretch}
+.share input{font-size:.85rem}
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <section class="mapcol" aria-label="Map">
+    <div class="map">
+      <svg id="map" viewBox="0 0 360 250" role="img" aria-label="Map of campus and nearby stops"></svg>
+      <div class="cap" id="mapcap"></div>
+    </div>
+  </section>
+  <section class="appcol stack">
+    <header class="mast">
+      <div class="logo"><i aria-hidden="true"></i>GClifts</div>
+      <span class="whoami" id="who"></span>
+    </header>
+    <nav class="tabs" id="tabs" hidden>
+      <button data-tab="ride">Get a ride</button><button data-tab="drive">Drive</button><button data-tab="log">Ride log</button>
+    </nav>
+    <main id="view"></main>
+  </section>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+const KEY="gclifts-v5";
+const PAY=["Cash App","Venmo","PayPal"];
+const PURPOSE=[["Groceries",1],["Pharmacy",1],["Clinic",1],["Job interview",1],["Class",0],["Other",0]];
+const SPOTS={
+  "Russell Library":[96,74],"Maxwell Student Union":[150,108],"Student Health Center":[206,62],
+  "The Village apts":[42,168],"Walmart Supercenter":[104,222],"Kroger":[184,188],
+  "CVS Pharmacy":[262,196],"Downtown Milledgeville":[296,128],"Bus Station":[310,44],"Airport shuttle stop":[332,226]};
+const SCHOOLS=[{name:"Georgia College & State University",short:"GC",city:"Milledgeville, GA",domains:["gcsu.edu","bobcats.gcsu.edu"]}];
+function pos(n){if(SPOTS[n])return SPOTS[n];let h=0;for(const c of String(n).toLowerCase())h=(h*31+c.charCodeAt(0))>>>0;return[40+h%280,60+(h>>>9)%165]}
+const norm=t=>String(t).trim().replace(/\s+/g," ");
+const known=t=>Object.keys(SPOTS).find(k=>k.toLowerCase()===norm(t).toLowerCase())||norm(t);
+const LABEL={"CVS Pharmacy":[0,20,"middle"],"Kroger":[0,-11,"middle"],"The Village apts":[0,20,"middle"],"Airport shuttle stop":[4,18,"end"]};
+const ROADS=[["Russell Library","Maxwell Student Union"],["Maxwell Student Union","Student Health Center"],["Russell Library","Student Health Center"],
+  ["Russell Library","The Village apts"],["The Village apts","Walmart Supercenter"],["Maxwell Student Union","Kroger"],["Walmart Supercenter","Kroger"],
+  ["Kroger","CVS Pharmacy"],["CVS Pharmacy","Downtown Milledgeville"],["Student Health Center","Bus Station"],["Bus Station","Downtown Milledgeville"],
+  ["Downtown Milledgeville","Maxwell Student Union"],["CVS Pharmacy","Airport shuttle stop"],["Downtown Milledgeville","Airport shuttle stop"]];
+const seedDrivers=[
+  {id:"d1",name:"Jordan Lee",email:"jlee@bobcats.gcsu.edu",year:"Junior",car:"Silver Honda Civic",seats:3,pay:["Venmo"],online:true,zone:"Maxwell Student Union"},
+  {id:"d2",name:"Aisha Moore",email:"amoore@bobcats.gcsu.edu",year:"Senior",car:"Blue Toyota RAV4",seats:4,pay:["PayPal","Venmo"],online:true,zone:"Russell Library"},
+  {id:"d3",name:"Marcus Diaz",email:"mdiaz@bobcats.gcsu.edu",year:"Sophomore",car:"Black Toyota Corolla",seats:3,pay:["Cash App"],online:true,zone:"The Village apts"},
+  {id:"d4",name:"Priya Shah",email:"pshah@bobcats.gcsu.edu",year:"Senior",car:"White VW Jetta",seats:2,pay:["Venmo","PayPal"],online:false,zone:"Downtown Milledgeville"}];
+const seedLog=[
+  {id:"r1",driverId:"d2",from:"Russell Library",to:"Walmart Supercenter",purpose:"Groceries",when:"2026-10-14T16:20",paidWith:"PayPal",rating:5},
+  {id:"r2",driverId:"d1",from:"Maxwell Student Union",to:"Student Health Center",purpose:"Clinic",when:"2026-10-17T09:05",paidWith:"Venmo",rating:5},
+  {id:"r3",driverId:"d2",from:"The Village apts",to:"CVS Pharmacy",purpose:"Pharmacy",when:"2026-10-19T18:40",paidWith:"Venmo",rating:4}];
+
+let S;
+function fresh(){return{user:null,tab:"ride",drivers:structuredClone(seedDrivers),log:structuredClone(seedLog),
+  draft:{from:"Maxwell Student Union",to:"Walmart Supercenter",purpose:"Groceries",pay:["Venmo"],prefer:null},active:null}}
+function load(){try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){} if(!S||!S.draft)S=fresh()}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+load();
+
+const $=s=>document.querySelector(s);
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const initials=n=>n.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();
+const first=n=>n.split(" ")[0];
+const drv=id=>S.drivers.find(d=>d.id===id);
+const dist=(a,b)=>{const p=pos(a),q=pos(b);return Math.hypot(p[0]-q[0],p[1]-q[1])};
+const miles=(a,b)=>(dist(a,b)/42).toFixed(1);
+function toast(m){const t=$("#toast");t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2400)}
+const opts=sel=>Object.keys(SPOTS).map(s=>`<option${s===sel?" selected":""}>${s}</option>`).join("");
+const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* ---------- map ---------- */
+function curve(a,b){const [x1,y1]=pos(a),[x2,y2]=pos(b);const mx=(x1+x2)/2,my=(y1+y2)/2;const dx=x2-x1,dy=y2-y1;
+  return `M${x1} ${y1} Q${mx-dy*.18} ${my+dx*.18} ${x2} ${y2}`}
+function drawMap(){
+  const a=S.active, from=a?a.from:S.draft.from, to=a?a.to:S.draft.to;
+  const d=a?drv(a.driverId):null;
+  let s=`<rect width="360" height="250" fill="var(--panel)"/>
+  <path d="M60 40 C110 18 240 22 236 74 C232 128 186 140 128 136 C70 132 30 84 60 40Z" fill="var(--campus)"/>
+  <text x="70" y="38" font-family="Archivo, system-ui, sans-serif" font-stretch="125%" font-weight="800" font-size="10" fill="var(--soft)">GC campus, Milledgeville</text>`;
+  s+=ROADS.map(([p,q])=>`<line x1="${SPOTS[p][0]}" y1="${SPOTS[p][1]}" x2="${SPOTS[q][0]}" y2="${SPOTS[q][1]}" stroke="var(--road)" stroke-width="5" stroke-linecap="round"/>`).join("");
+  if(from&&to&&from!==to)s+=`<path id="rt" d="${curve(from,to)}" fill="none" stroke="var(--route)" stroke-width="4" stroke-linecap="round" ${a?'stroke-dasharray="1 0"':'stroke-dasharray="2 7"'}/>`;
+  if(d&&d.zone!==from)s+=`<path id="ap" d="${curve(d.zone,from)}" fill="none" stroke="var(--soft)" stroke-width="2" stroke-dasharray="3 4"/>`;
+  const pts=Object.entries(SPOTS);[from,to].forEach(n=>{if(n&&!SPOTS[n])pts.push([n,pos(n)])});
+  for(const [name,[x,y]] of pts){
+    const isA=name===from,isB=name===to;
+    const r=isA||isB?7:4;
+    const fill=isB?"var(--permit)":isA?"var(--panel)":"var(--soft)";
+    const stroke=isB?"var(--permit-ink)":isA?"var(--route)":"none";
+    const right=x>250,L=LABEL[name]||[right?-11:11,4,right?"end":"start"];
+    s+=`<circle cx="${x}" cy="${y}" r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="${isA?3:isB?2:0}"/>
+      <text x="${x+L[0]}" y="${y+L[1]}" text-anchor="${L[2]}" font-family="Public Sans, system-ui, sans-serif" font-size="${isA||isB?10.5:9}" font-weight="${isA||isB?700:400}" fill="${isA||isB?"var(--ink)":"var(--soft)"}">${name}</text>`;
+  }
+  if(!a){S.drivers.filter(x=>x.online&&x.email!==S.user?.email).forEach((x,i)=>{const [cx,cy]=pos(x.zone);
+    s+=`<g transform="translate(${cx+(i%2?-9:9)} ${cy-13})"><rect x="-7" y="-5" width="14" height="10" rx="3" fill="var(--route)"/><title>${esc(x.name)} is online</title></g>`})}
+  else s+=`<g id="car"><rect x="-8" y="-6" width="16" height="12" rx="3.5" fill="var(--ink)"/><rect x="-4" y="-3" width="8" height="5" rx="1" fill="var(--permit)"/></g>`;
+  $("#map").innerHTML=s;
+  const cap=$("#mapcap");
+  if(!from||!to){cap.innerHTML=`<span>Type a pickup and a drop-off to see your route.</span>`}
+  else if(from===to){cap.innerHTML=`<span>Pick two different places.</span>`}
+  else cap.innerHTML=`<span>${esc(from)} to ${esc(to)}</span><span><b>${miles(from,to)} mi</b>, about <b>${Math.max(4,Math.round(dist(from,to)/9))} min</b> drive</span>`;
+  if(a)animateCar(d.zone===from?null:$("#ap"));
+}
+let raf;
+function animateCar(path){
+  cancelAnimationFrame(raf);const car=$("#car");if(!car)return;
+  const [px,py]=pos(S.active.from);
+  if(!path||reduce){car.setAttribute("transform",`translate(${px} ${py-14})`);return}
+  const L=path.getTotalLength(),t0=performance.now(),dur=4200;
+  const step=t=>{const k=Math.min(1,(t-t0)/dur),e=1-Math.pow(1-k,3);const p=path.getPointAtLength(L*e*.94);
+    car.setAttribute("transform",`translate(${p.x} ${p.y})`);if(k<1)raf=requestAnimationFrame(step)};
+  raf=requestAnimationFrame(step);
+}
+
+/* ---------- matching ---------- */
+function match(){
+  const {from,pay,prefer}=S.draft,me=S.user.email;
+  const cands=S.drivers.filter(d=>d.online&&d.email!==me&&d.seats>0);
+  if(!cands.length)return null;
+  const scored=cands.map(d=>{
+    const past=S.log.filter(r=>r.driverId===d.id);
+    const avg=past.length?past.reduce((t,r)=>t+r.rating,0)/past.length:0;
+    const overlap=d.pay.filter(p=>pay.includes(p));
+    let score=-dist(d.zone,from)/20,why=[];
+    if(prefer===d.id){score+=100;why.push(`You asked for ${first(d.name)}`)}
+    if(past.length){score+=10+past.length*3+avg;why.push(`${past.length} past ride${past.length>1?"s":""} together, ${avg.toFixed(1)} stars`)}
+    if(overlap.length){score+=8;why.push(`Takes ${overlap.join(" or ")}`)}else if(pay.length)score-=6;
+    if(d.zone===from)why.push(`Already at ${from}`);
+    return{d,score,why,eta:Math.max(2,Math.round(dist(d.zone,from)/10)+2)};
+  }).sort((x,y)=>y.score-x.score);
+  return scored[0];
+}
+
+const AVC=["#0f766e","#7c3aed","#c2410c","#1d4ed8","#be185d","#4d7c0f"];
+const avColor=n=>{let h=0;for(const c of n)h=(h*17+c.charCodeAt(0))>>>0;return AVC[h%AVC.length]};
+const VER=`<span class="ver" title="Verified Georgia College student"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 6.2l2.3 2.3 4.7-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>GC student</span>`;
+function profile(d,{tag="div",attrs="",paid=[],footer=""}={}){
+  const rs=S.log.filter(r=>r.driverId===d.id),avg=rs.length?rs.reduce((t,r)=>t+r.rating,0)/rs.length:0;
+  return `<${tag} class="prof" ${attrs}>
+    <div class="top"><span class="av" style="background:${avColor(d.name)}">${initials(d.name)}<i class="live ${d.online?"on":""}" title="${d.online?"Online now":"Offline"}"></i></span>
+      <div><h3>${esc(d.name)} ${VER}</h3><div class="car">${esc(d.year)}</div><div class="car">${esc(d.car)}</div></div></div>
+    <div class="stats"><div><b>${rs.length}</b><span>rides together</span></div>
+      <div><b>${rs.length?avg.toFixed(1):"New"}${rs.length?' <span class="stars">★</span>':""}</b><span>your rating</span></div>
+      <div><b>${d.seats}</b><span>open seats</span></div></div>
+    <div class="pays">${d.pay.map(p=>`<span class="pay ${paid.includes(p)?"yes":""}">${esc(p)}</span>`).join("")}</div>
+    ${footer?`<div class="foot">${footer}</div>`:""}
+  </${tag}>`;
+}
+const code=()=>"GC-"+String(Math.floor(1000+Math.random()*9000));
+
+/* ---------- views ---------- */
+function render(){
+  $("#tabs").hidden=!S.user;
+  $("#who").textContent=S.user?(S.user.school?S.user.school+", ":"")+S.user.email:"";
+  document.querySelectorAll("#tabs button").forEach(b=>b.setAttribute("aria-current",b.dataset.tab===S.tab?"page":"false"));
+  if(!S.user)signin();else({ride:S.active?activeView:rideView,drive:driveView,log:logView})[S.tab]();
+  drawMap();
+}
+
+let pickedSchool=null;
+function signin(){
+  const intro=`<h1>Rides from classmates, for the trips that matter.</h1>
+    <p class="lede">Groceries, the pharmacy, a clinic visit, a job interview. Every driver and rider is a verified student at your school. You settle payment with your driver directly; GClifts keeps the record.</p>`;
+  if(pickedSchool===null){
+    $("#view").innerHTML=`<div class="stack">${intro}
+    <div class="form stack">
+      <h3>Connect to your school</h3>
+      <p class="hint">GClifts only matches you with students from the same school.</p>
+      <div class="list" id="schools">${SCHOOLS.map((c,i)=>`<button type="button" class="pick person" data-i="${i}">
+        <span class="face">${esc(c.short)}</span><div><h3>${esc(c.name)}</h3><div class="sub">${esc(c.city)}</div></div></button>`).join("")}</div>
+      <p class="hint">More schools are coming. Ask your student government to add yours.</p>
+    </div></div>`;
+    $("#schools").onclick=e=>{const b=e.target.closest(".pick");if(!b)return;pickedSchool=+b.dataset.i;signin()};
+    return;
+  }
+  const sc=SCHOOLS[pickedSchool];
+  $("#view").innerHTML=`<div class="stack">${intro}
+    <form id="f" class="form stack" novalidate>
+      <div class="person"><span class="face">${esc(sc.short)}</span><div><h3>${esc(sc.name)}</h3><div class="sub">${esc(sc.city)}</div></div>
+        <button type="button" class="quiet" id="change">Change</button></div>
+      <label for="email">School email<input id="email" type="email" autocomplete="email" placeholder="first.last@${esc(sc.domains[1]||sc.domains[0])}"></label>
+      <label for="name">Your name<input id="name" autocomplete="name" placeholder="First and last name"></label>
+      <p class="err" id="err"></p>
+      <button class="go">Verify and continue</button>
+    </form></div>`;
+  $("#email").focus();
+  $("#change").onclick=()=>{pickedSchool=null;signin()};
+  $("#f").onsubmit=e=>{e.preventDefault();
+    const name=$("#name").value.trim(),email=$("#email").value.trim().toLowerCase(),dom=email.split("@")[1]||"";
+    if(!/^[^@\s]+@[^@\s]+$/.test(email)||!sc.domains.includes(dom))return $("#err").textContent=`Use your ${sc.name} email. It must end in @${sc.domains.join(" or @")}.`;
+    if(!name)return $("#err").textContent="Enter your name so drivers know who to pick up.";
+    S.user={name,email,school:sc.name};save();render();toast("You're verified");
+  };
+}
+
+function rideView(){
+  const D=S.draft;
+  const past=[...new Set(S.log.map(r=>r.driverId))].map(drv).filter(d=>d&&d.online&&d.email!==S.user.email);
+  $("#view").innerHTML=`<div class="stack">
+    <h2>Where are you headed?</h2>
+    <div class="form stack">
+      <div class="trip">
+        <span class="pin a"></span><label for="from">Pickup<input id="from" value="${esc(D.from)}" placeholder="Building or address" autocomplete="off"></label>
+        <span class="line"></span><span></span>
+        <span class="pin b"></span><label for="to">Drop-off<input id="to" value="${esc(D.to)}" placeholder="Store, clinic or address" autocomplete="off"></label>
+      </div>
+      <div class="stack tight"><span class="legend">What's the trip for?</span>
+        <div class="chips" id="purpose">${PURPOSE.map(([p])=>`<button type="button" class="chip" aria-pressed="${p===D.purpose}">${p}</button>`).join("")}</div>
+        <span class="hint" id="phint"></span></div>
+      <div class="stack tight"><span class="legend">You can pay with</span>
+        <div class="chips" id="pay">${PAY.map(p=>`<button type="button" class="chip" aria-pressed="${D.pay.includes(p)}">${p}</button>`).join("")}</div></div>
+      <p class="err" id="err"></p>
+      <button class="go" id="go">Find my driver</button>
+    </div>
+    ${past.length?`<div class="stack tight"><h3>Ride again with someone you know</h3>
+      <p class="hint">Tap a driver to ask for them. If they're free, you're matched with them first.</p>
+      <div class="profiles" id="again">${past.map(d=>profile(d,{tag:"button",attrs:`type="button" data-id="${d.id}" aria-pressed="${D.prefer===d.id}"`,paid:D.pay,
+        footer:`<span class="sub">Near ${esc(d.zone)}</span><span class="req">${D.prefer===d.id?"Requested":"Request"}</span>`})).join("")}</div></div>`:""}
+  </div>`;
+  const hint=()=>{const ess=PURPOSE.find(p=>p[0]===S.draft.purpose)[1];$("#phint").textContent=ess?"Essential trip. Drivers see these first.":"Drivers see essential trips first, then the rest."};hint();
+  $("#from").oninput=e=>{D.from=known(e.target.value);save();drawMap()};
+  $("#to").oninput=e=>{D.to=known(e.target.value);save();drawMap()};
+  $("#purpose").onclick=e=>{const c=e.target.closest(".chip");if(!c)return;D.purpose=c.textContent;
+    $("#purpose").querySelectorAll(".chip").forEach(x=>x.setAttribute("aria-pressed",x===c));hint();save()};
+  $("#pay").onclick=e=>{const c=e.target.closest(".chip");if(!c)return;const on=c.getAttribute("aria-pressed")!=="true";c.setAttribute("aria-pressed",on);
+    D.pay=on?[...D.pay,c.textContent]:D.pay.filter(p=>p!==c.textContent);save()};
+  const ag=$("#again");if(ag)ag.onclick=e=>{const b=e.target.closest(".prof");if(!b)return;D.prefer=D.prefer===b.dataset.id?null:b.dataset.id;
+    ag.querySelectorAll(".prof").forEach(x=>{const on=x.dataset.id===D.prefer;x.setAttribute("aria-pressed",on);x.querySelector(".req").textContent=on?"Requested":"Request"});save()};
+  $("#go").onclick=()=>{
+    if(!D.from||!D.to)return $("#err").textContent="Type where you want to be picked up and dropped off.";
+    if(D.from.toLowerCase()===D.to.toLowerCase())return $("#err").textContent="Pickup and drop-off are the same place. Change one of them.";
+    if(!D.pay.length)return $("#err").textContent="Choose at least one way you can pay.";
+    const m=match();
+    if(!m)return $("#err").textContent="No drivers are online right now. Try again in a few minutes.";
+    S.active={driverId:m.d.id,from:D.from,to:D.to,purpose:D.purpose,why:m.why,eta:m.eta,pay:[...D.pay],code:code(),when:new Date().toISOString().slice(0,16)};
+    D.prefer=null;save();render();toast(`Matched with ${first(m.d.name)}`);
+  };
+}
+
+function activeView(){
+  const a=S.active,d=drv(a.driverId),ok=d.pay.filter(p=>a.pay.includes(p));
+  const shareText=`I'm riding with ${d.name} (${d.car}) from ${a.from} to ${a.to}. Ride code ${a.code}. ETA ${a.eta} min. Sent from GClifts.`;
+  $("#view").innerHTML=`<div class="stack">
+    <div class="tag" role="group" aria-label="Your matched ride">
+      <div class="issuer"><span>GClifts</span><span>${esc(a.purpose)}</span></div>
+      <div class="code">${a.code}</div>
+      <div class="codehint">Ask your driver to say this code before you get in.</div>
+      <div class="who"><div><h3>${esc(d.name)}</h3><div>${esc(d.car)}</div><div>${esc(d.year)}</div></div>
+        <div class="eta">${a.eta}<small>min away</small></div></div>
+      <div class="why">${a.why.length?esc(a.why.join(". "))+".":"Closest driver who's online."}</div>
+    </div>
+    <div class="form stack">
+      <div class="stack tight"><h3>How ${esc(first(d.name))} likes to be paid</h3>
+        <div class="pays">${d.pay.map(p=>`<span class="pay ${ok.includes(p)?"yes":""}">${esc(p)}</span>`).join("")}</div>
+        <p class="hint">${ok.length?`Highlighted options match what you said you can pay with.`:`None of these match what you picked. Sort it out with ${esc(first(d.name))} before the ride.`} Payment happens between you two, outside the app.</p></div>
+      <div class="stack tight"><span class="legend">Share your trip</span>
+        <div class="share"><input id="sharetxt" readonly value="${esc(shareText)}" aria-label="Trip details to share"><button class="quiet" id="copy">Copy</button></div></div>
+    </div>
+    <div class="form stack">
+      <h3>When you arrive</h3>
+      <div class="row" style="align-items:stretch">
+        <label for="paid" style="flex:1;min-width:150px">You paid with<select id="paid">${d.pay.map(p=>`<option${p===ok[0]?" selected":""}>${esc(p)}</option>`).join("")}</select></label>
+        <label for="rate" style="flex:1;min-width:120px">Rating<select id="rate">${[5,4,3,2,1].map(n=>`<option value="${n}">${n} star${n>1?"s":""}</option>`).join("")}</select></label>
+      </div>
+      <button class="go" id="done">Finish ride and save to log</button>
+      <button class="quiet" id="cancel">Cancel this ride</button>
+    </div></div>`;
+  $("#copy").onclick=async()=>{const i=$("#sharetxt");try{await navigator.clipboard.writeText(i.value);toast("Trip details copied")}catch(e){i.select();toast("Selected. Press copy on your keyboard.")}};
+  $("#done").onclick=()=>{S.log.unshift({id:"r"+Date.now(),driverId:d.id,from:a.from,to:a.to,purpose:a.purpose,when:a.when,paidWith:$("#paid").value,rating:+$("#rate").value});
+    S.active=null;S.tab="log";save();render();toast("Ride saved to your log")};
+  $("#cancel").onclick=()=>{S.active=null;save();render();toast("Ride canceled")};
+}
+
+function driveView(){
+  const me=S.drivers.find(d=>d.email===S.user.email);
+  const essentials=PURPOSE.filter(p=>p[1]).map(p=>p[0]).join(", ").toLowerCase();
+  $("#view").innerHTML=`<div class="stack">
+    <h2>Drive for classmates</h2>
+    <p class="lede">Riders see how you like to be paid before they're matched with you, and every ride logs how they paid. Essential trips (${essentials}) reach you first.</p>
+    <div class="form stack">
+      <label for="online" class="row" style="flex-direction:row;justify-content:space-between"><span>I'm available to drive now</span>
+        <input id="online" type="checkbox" style="width:22px;height:22px" ${me?.online?"checked":""}></label>
+      <div class="row" style="align-items:stretch">
+        <label for="car" style="flex:2;min-width:170px">Car<input id="car" value="${esc(me?.car||"")}" placeholder="Color, make and model"></label>
+        <label for="seats" style="flex:1;min-width:90px">Open seats<input id="seats" type="number" min="1" max="6" value="${me?.seats||3}"></label>
+      </div>
+      <div class="row" style="align-items:stretch">
+        <label for="year" style="flex:1;min-width:120px">Year<select id="year">${["Freshman","Sophomore","Junior","Senior","Grad"].map(y=>`<option${y===me?.year?" selected":""}>${y}</option>`).join("")}</select></label>
+      </div>
+      <label for="zone">You're usually near<select id="zone">${opts(me?.zone||"Maxwell Student Union")}</select></label>
+      <div class="stack tight"><span class="legend">Payment you prefer</span>
+        <div class="chips" id="dpay">${PAY.map(p=>`<button type="button" class="chip" aria-pressed="${(me?.pay||["Venmo"]).includes(p)}">${p}</button>`).join("")}</div></div>
+      <p class="err" id="err"></p>
+      <button class="go" id="saveD">Save driver profile</button>
+    </div></div>`;
+  $("#dpay").onclick=e=>{const c=e.target.closest(".chip");if(c)c.setAttribute("aria-pressed",c.getAttribute("aria-pressed")!=="true")};
+  $("#saveD").onclick=()=>{
+    const pay=[...document.querySelectorAll("#dpay .chip[aria-pressed=true]")].map(c=>c.textContent);
+    const car=$("#car").value.trim();
+    if(!car)return $("#err").textContent="Add your car so riders can spot you.";
+    if(!pay.length)return $("#err").textContent="Pick at least one way you'd like to be paid.";
+    const data={name:S.user.name,email:S.user.email,year:$("#year").value,car,
+      seats:Math.max(1,+$("#seats").value||1),pay,online:$("#online").checked,zone:$("#zone").value};
+    if(me)Object.assign(me,data);else S.drivers.push({id:"me",...data});
+    save();drawMap();toast(data.online?"Driver profile saved. You're available.":"Driver profile saved");
+  };
+}
+
+function logView(){
+  const by={};S.log.forEach(r=>(by[r.driverId]=by[r.driverId]||[]).push(r));
+  const people=Object.entries(by).sort((a,b)=>b[1].length-a[1].length);
+  const payCount={};S.log.forEach(r=>payCount[r.paidWith]=(payCount[r.paidWith]||0)+1);
+  const topPay=Object.entries(payCount).sort((a,b)=>b[1]-a[1])[0];
+  const fmt=w=>new Date(w).toLocaleDateString("en-US",{month:"short",day:"numeric"});
+  $("#view").innerHTML=`<div class="stack">
+    <h2>Ride log</h2>
+    ${S.log.length?`<p class="summary">${S.log.length} ride${S.log.length>1?"s":""} with ${people.length} driver${people.length>1?"s":""}. You pay with ${esc(topPay[0])} most often.</p>`:""}
+    <div class="stack tight"><h3>Drivers you've ridden with</h3>
+      <div class="profiles">${people.map(([id,rs])=>{const d=drv(id);if(!d)return"";const paid=[...new Set(rs.map(r=>r.paidWith))];
+        return profile(d,{paid,footer:`<span class="sub">Last ride ${new Date(rs[0].when).toLocaleDateString("en-US",{month:"short",day:"numeric"})}. You paid with ${paid.map(esc).join(", ")}.</span>`})}).join("")
+        ||`<p class="hint">No rides yet. After your first ride, that driver shows up here and gets matched with you first next time.</p>`}</div></div>
+    ${S.log.length?`<div class="stack tight"><h3>Every ride</h3><div class="scroll"><table>
+      <thead><tr><th>Date</th><th>Trip</th><th>For</th><th>Driver</th><th>Paid with</th><th>Rating</th></tr></thead><tbody>
+      ${S.log.map(r=>{const d=drv(r.driverId);return `<tr><td class="num">${fmt(r.when)}</td><td>${esc(r.from)} to ${esc(r.to)}</td><td>${esc(r.purpose||"")}</td><td>${esc(d?first(d.name):"")}</td><td>${esc(r.paidWith)}</td><td class="num">${"★".repeat(r.rating)}</td></tr>`}).join("")}
+      </tbody></table></div></div>`:""}
+    <div class="row"><button class="quiet" id="reset">Reset sample data</button><button class="quiet" id="out">Sign out</button></div>
+  </div>`;
+  $("#reset").onclick=()=>{const u=S.user;S=fresh();S.user=u;S.tab="log";save();render();toast("Sample data restored")};
+  $("#out").onclick=()=>{pickedSchool=null;S.user=null;S.active=null;S.tab="ride";save();render()};
+}
+
+$("#tabs").onclick=e=>{const b=e.target.closest("button");if(!b)return;S.tab=b.dataset.tab;save();render()};
+render();
+</script>
+</body>
+</html>
