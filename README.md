@@ -103,7 +103,7 @@ Every size also:
 - Uses 16px text in form fields, so iPhones don't zoom in when you tap one.
 - Respects the safe areas around a phone's notch and home bar.
 - Follows the device's light or dark setting. Set `data-theme="light"` or `data-theme="dark"` on `<html>` to force one.
-- Skips the simulated ride progress and shows the driver as arrived when the device asks for reduced motion.
+- Has no decorative animation. The ride progress bar fills in steps, so it reads the same with reduced motion turned on.
 
 ### Changing the styles
 

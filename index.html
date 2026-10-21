@@ -29,7 +29,7 @@
 <div id="toast" role="status" hidden class="fixed bottom-[calc(20px+env(safe-area-inset-bottom,0px))] left-1/2 z-20 max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-[10px] bg-ink px-4 py-3 text-[.92rem] font-semibold text-ground shadow-lg"></div>
 
 <script>
-const KEY="gclifts-v7";
+const KEY="gclifts-v8";
 const PAY=["Cash App","Venmo","PayPal"];
 const SPOTS={
   "Russell Library":[96,74],"Maxwell Student Union":[150,108],"Student Health Center":[206,62],
@@ -84,10 +84,8 @@ const first=n=>n.split(" ")[0];
 const drv=id=>S.drivers.find(d=>d.id===id);
 // Straight-line distance between demo stops; null when either place isn't a known stop.
 const dist=(a,b)=>{if(!isStop(a)||!isStop(b))return null;const p=pos(a),q=pos(b);return Math.hypot(p[0]-q[0],p[1]-q[1])};
-const miles=(a,b)=>(dist(a,b)/42).toFixed(1);
 function toast(m){const t=$("#toast");t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2400)}
 const opts=sel=>Object.keys(SPOTS).map(s=>`<option${s===sel?" selected":""}>${esc(s)}</option>`).join("");
-const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /* ---------- shared Tailwind class sets (full strings so Tailwind can find them) ---------- */
 const UI={
@@ -119,11 +117,13 @@ const UI={
 
 /* ---------- trip ---------- */
 // Distance and drive time between two known stops, shown under the pickup and drop-off fields.
+const samePlace=(a,b)=>a.toLowerCase()===b.toLowerCase();
 function routeHint(from,to){
   if(!from||!to)return"Type a pickup and a drop-off.";
-  if(from.toLowerCase()===to.toLowerCase())return"Pick two different places.";
-  if(dist(from,to)===null)return"Distance and drive time show for known campus and town stops.";
-  return`${miles(from,to)} mi, about ${Math.max(4,Math.round(dist(from,to)/9))} min drive.`;
+  if(samePlace(from,to))return"Pick two different places.";
+  const km=dist(from,to);
+  if(km===null)return"Distance and drive time show for known campus and town stops.";
+  return`${(km/42).toFixed(1)} mi, about ${Math.max(4,Math.round(km/9))} min drive.`;
 }
 let raf;
 // Simulated progress: the driver heads from their area to the pickup and the status card updates as they go.
@@ -131,10 +131,11 @@ function trackRide(){
   cancelAnimationFrame(raf);const a=S.active;if(!a||!$("#st"))return;
   const d=drv(a.driverId);
   const total=isStop(a.from)?dist(d.zone,a.from)/42:null;
-  const dur=reduce?0:12000;
   if(!a.startedAt){a.startedAt=Date.now();save()}
   const step=()=>{
-    const k=dur?Math.min(1,(Date.now()-a.startedAt)/dur):1;
+    // Stop once the ride screen is gone; it picks up from startedAt when the rider comes back.
+    if(S.active!==a||!$("#st"))return;
+    const k=Math.min(1,(Date.now()-a.startedAt)/12000);
     trip(k,total);
     if(k<1)raf=requestAnimationFrame(step);
   };
@@ -293,7 +294,7 @@ function rideView(){
     ag.querySelectorAll("[data-id]").forEach(x=>{const on=x.dataset.id===D.prefer;x.setAttribute("aria-pressed",on);x.querySelector(".req").textContent=on?"Requested":"Request"});save()};
   $("#go").onclick=()=>{
     if(!D.from||!D.to)return $("#err").textContent="Type where you want to be picked up and dropped off.";
-    if(D.from.toLowerCase()===D.to.toLowerCase())return $("#err").textContent="Pickup and drop-off are the same place. Change one of them.";
+    if(samePlace(D.from,D.to))return $("#err").textContent="Pickup and drop-off are the same place. Change one of them.";
     if(!D.pay.length)return $("#err").textContent="Choose at least one way you can pay.";
     const m=match();
     if(!m)return $("#err").textContent="No drivers are online right now. Try again in a few minutes.";
