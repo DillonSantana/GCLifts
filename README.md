@@ -1,32 +1,30 @@
 # GClifts MVP
 
-A students-only ride-share for Georgia College & State University. Students without cars get rides from verified classmates to the places that matter: groceries, the pharmacy, the clinic, a job interview.
-
+A students-only ride-share for Georgia College & State University. Students  get rides from verified classmates to the places that matter.
 **Track:** Community & Wellbeing (AWS for Social Good)
 
 ## Problem
 
-Many GC students don't have a car. Milledgeville has limited public transit, and rideshare apps are expensive and unreliable in a small town. Students skip grocery runs, prescriptions and appointments because they can't get there.
+Milledgeville has limited public transit, and no rideshare apps are available. Students created a huge GroupMe group chat that has its own challenges, some members of the group chat are not part of the college some riders don't pay the driver, and sometimes the group chat is too chaotic to get a driver.
 
 ## Who it helps
 
-- **Riders:** students without a car, especially first-years and students on a tight budget.
-- **Drivers:** students with a car who want a little gas money and to help classmates.
+- **Riders:** Automatically connects riders with drivers, and drivers are verified students. 
+- **Drivers:** automatically connects with riders, and it's verified your pay. You can chat with the people you match with.
 
 ## What the MVP does
 
 ### 1. Connect to your school
 - The student picks their school first. For the demo, the only option is **Georgia College & State University**.
+- The app sends a verification email to verify the email is a real email (if possible within timeframe)
 - Then they enter their school email. Only `@gcsu.edu` and `@bobcats.gcsu.edu` addresses are accepted.
 - Every user is a verified student, and students are only matched with people from their own school.
 
 ### 2. Request a ride
-- The rider types a pickup and drop-off as free text. Known campus and town stops appear on the map.
-- They pick the trip's purpose: Groceries, Pharmacy, Clinic, Job interview, Class, or Other.
-  - Groceries, Pharmacy, Clinic and Job interview count as **essential trips**, and drivers see them first.
+- The rider types a pickup and drop-off as free text. 
 - They pick how they can pay: **Cash App, Venmo or PayPal**.
 - Optionally, they can request a driver they've ridden with before.
-- **Find my driver** matches them with a driver automatically.
+- **Find my driver** matches them with a driver automatically. Who is available to drive 
 
 ### 3. Automatic matching
 Each online driver with an open seat gets a score. The highest score wins:
