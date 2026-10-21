@@ -23,8 +23,7 @@ Milledgeville has limited public transit, and no rideshare apps are available. S
 - Every user is a verified student, and students are only matched with people from their own school.
 
 ### 2. Request a ride
-- The rider types a pickup and drop-off as free text. Known campus and town stops show on the map with the distance and drive time.
-- They pick the trip's purpose: Groceries, Pharmacy, Clinic, Job interview, Class or Other. Groceries, Pharmacy, Clinic and Job interview are **essential trips**.
+- The rider types a pickup and drop-off as free text. For known campus and town stops, the app shows the distance and drive time.
 - They pick how they can pay: **Cash App, Venmo or PayPal**.
 - They see how many drivers are available to drive right now.
 - Optionally, they can request a driver they've ridden with before.
@@ -40,9 +39,12 @@ Each online driver with an open seat gets a score. The highest score wins:
 | Driver accepts one of the rider's payment methods | Boost; a driver with no matching method is ranked lower |
 | Driver is close to the pickup | Small boost, decreasing with distance |
 
-A driver's last open seat is held for essential trips, so other trips only go to drivers with at least two open seats.
-
 The match screen explains why that driver was picked, for example "1 past ride together, 5.0 stars. Takes Venmo."
+
+### 4. Matched ride
+- A status card follows the driver from matched to on the way, arriving and here. (Progress is simulated in the demo.)
+- The ride card shows the driver's name, car and ETA, plus a **ride code** (for example, `GC-2529`). The driver says the code before the rider gets in, so the rider knows it's the right car.
+- The rider can message the driver, see which of the driver's payment methods match theirs, and **share the trip** with a friend.
 
 ### 5. Payment (outside the app)
 - Money moves directly between the rider and driver in Cash App, Venmo or PayPal.
@@ -61,7 +63,7 @@ The match screen explains why that driver was picked, for example "1 past ride t
 ### 8. Ride log
 - A summary line, for example: "3 rides with 2 drivers. You pay with Venmo most often."
 - **Drivers you've ridden with:** number of rides, what you paid with, and what they prefer.
-- **Every ride:** date, trip, purpose, driver, payment method, whether the driver confirmed it, and rating.
+- **Every ride:** date, trip, driver, payment method, whether the driver confirmed it, and rating.
 - **Reset my sample rides** restores the sample rides and keeps the rider's own rides.
 - Past drivers are matched first on future rides.
 
@@ -71,7 +73,7 @@ The match screen explains why that driver was picked, for example "1 past ride t
 |---|---|
 | **Users** | email (key), name, school |
 | **Drivers** | id, email, car, seats, zone, pay[], online |
-| **Rides** | id, riderEmail, riderName, driverId, from, to, purpose, when, paidWith, confirmed, rating, code, chat[] |
+| **Rides** | id, riderEmail, riderName, driverId, from, to, when, paidWith, confirmed, rating, code, chat[] |
 
 ## Demo stops (Milledgeville)
 
@@ -89,20 +91,19 @@ Open `index.html` in a browser. The compiled stylesheet, `styles/app.css`, is co
 
 ### How it adapts to each device
 
+The app is one centered column at every size, limited to a comfortable reading width.
+
 | Screen | Layout |
 |---|---|
-| Phones (under 640px) | The map sits above the app. The tabs fill the width and stay at the top while you scroll. The ride log shows each ride as a card instead of a table, and the trip chat fits the screen width. Form fields are stacked. |
-| Tablets (640px to 1023px) | The map is still on top, and the column is limited to a comfortable reading width. Form fields sit side by side, and the ride log becomes a table. |
-| Laptops and desktops (1024px and up) | The map is on the left and stays in view while you scroll; the app is on the right. |
-
-The sign-in screens (choosing a school, email and code) have no map at any size: they're a single centered column. The map appears once you're signed in.
+| Phones (under 640px) | The tabs fill the width and stay at the top while you scroll. The ride log shows each ride as a card instead of a table, and the trip chat fits the screen width. Form fields are stacked. |
+| Tablets, laptops and desktops (640px and up) | Form fields sit side by side, and the ride log becomes a table. |
 
 Every size also:
 - Has buttons and chips at least 44px tall, so they're easy to tap.
 - Uses 16px text in form fields, so iPhones don't zoom in when you tap one.
 - Respects the safe areas around a phone's notch and home bar.
 - Follows the device's light or dark setting. Set `data-theme="light"` or `data-theme="dark"` on `<html>` to force one.
-- Skips the hang-tag swing animation when the device asks for reduced motion.
+- Has no decorative animation. The ride progress bar fills in steps, so it reads the same with reduced motion turned on.
 
 ### Changing the styles
 
@@ -123,7 +124,7 @@ Write class names out in full (for example `"bg-route"`, not `"bg-" + color`); T
 | File | What it is |
 |---|---|
 | `index.html` | The app: markup, Tailwind classes and JavaScript |
-| `styles/input.css` | Tailwind source: color tokens, dark mode, fonts, the hang-tag animation |
+| `styles/input.css` | Tailwind source: color tokens, dark mode, fonts |
 | `styles/app.css` | Compiled Tailwind output that `index.html` loads (generated; don't edit by hand) |
 | `package.json` | Tailwind CLI and the `build` and `dev` scripts |
 | `setup-aws.sh` | AWS CLI and Agent Toolkit setup |
@@ -136,14 +137,14 @@ Write class names out in full (for example `"bg-route"`, not `"bg-" + color`); T
 | Data | **DynamoDB**: Users, Drivers and Rides tables |
 | Matching | **Lambda** running the scoring logic above, behind **API Gateway** |
 | Maps and addresses | **Amazon Location Service** for geocoding the free-text stops and calculating distance and ETA |
-| Ride alerts | **SNS** text messages to drivers when an essential trip is requested |
+| Ride alerts | **SNS** text messages to drivers when a ride is requested |
 | Hosting | **S3** and **CloudFront**, or **Amplify Hosting** |
 
 Region: the project is in `us-east-2`; the Agent Toolkit runs in `us-east-1`.
 
 ## Out of scope for the MVP
 
-- Live GPS tracking (the map animation is simulated)
+- Maps and live GPS tracking (ride progress is simulated)
 - In-app payments
 - Driver background checks and insurance verification
 - Schools other than GCSU
@@ -152,8 +153,8 @@ Region: the project is in `us-east-2`; the Agent Toolkit runs in `us-east-1`.
 
 1. **The problem:** "Maria is a GC freshman with no car and a prescription to pick up at CVS. The GroupMe ride chat is chaos."
 2. **Connect to school:** choose Georgia College & State University and sign in with a `@bobcats.gcsu.edu` email. Show that a non-GC email is rejected, then enter the 6-digit code.
-3. **Request:** Maxwell Student Union to CVS Pharmacy, purpose Pharmacy (an essential trip), paying with Venmo.
-4. **Match:** the hang tag appears. Point out the ride code, the reason this driver was picked, the matching payment method and the driver moving on the map. Send the driver a message.
+3. **Request:** Maxwell Student Union to CVS Pharmacy, paying with Venmo.
+4. **Match:** point out the ride code, the reason this driver was picked, the matching payment method and the status card moving from on the way to here. Send the driver a message.
 5. **Finish:** record Venmo and 5 stars, then open the ride log and watch the payment change to Confirmed.
 6. **Drive:** open the Drive tab, save a driver profile, confirm Maya's payment and message her.
 7. **Close:** "Students helping students get to the trips that matter. Next, we put it on Cognito, DynamoDB and Location Service."
@@ -161,7 +162,7 @@ Region: the project is in `us-east-2`; the Agent Toolkit runs in `us-east-1`.
 ## Judging fit
 
 - **Completion:** every step from sign-in through matching, the ride and the ride log works.
-- **Originality:** limited to one school, essential trips come first, and the hang-tag ride code.
-- **Design:** map-first layout built with Tailwind CSS that adapts to phones, tablets and laptops, in light and dark mode.
+- **Originality:** limited to one school, matching that favors drivers you've ridden with, and a ride code to check the car.
+- **Design:** a single-column layout built with Tailwind CSS that adapts to phones, tablets and laptops, in light and dark mode.
 - **Technical:** scored matching that uses ride history, payment compatibility and distance.
 - **Social good:** access to food, medicine, healthcare and jobs for students without cars.

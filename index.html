@@ -11,15 +11,8 @@
 </head>
 <body class="min-h-dvh text-base">
 
-<!-- Layout: the sign-in screens are one centered column with no map. Once signed in, phones and tablets stack the map above the app; from lg up the map sits on the left and stays in view.
-     The one bold element is the matched ride, shown as a yellow rear-view-mirror parking hang tag. -->
-<div id="shell" class="mx-auto grid max-w-2xl gap-5 pt-4 pb-10 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:gap-6 sm:pt-6 lg:data-[signed]:max-w-6xl lg:data-[signed]:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:items-start lg:gap-9 lg:pt-8 lg:pb-14">
-  <section id="mapsec" class="min-w-0 lg:sticky lg:top-6" aria-label="Map">
-    <div class="overflow-hidden rounded-2xl border border-rule bg-panel">
-      <svg id="map" class="block h-auto w-full" viewBox="0 0 360 250" role="img" aria-label="Map of campus and nearby stops"></svg>
-      <div id="mapcap" class="flex flex-wrap justify-between gap-x-3 gap-y-1 border-t border-rule px-4 py-3 text-sm text-soft [&_b]:text-ink [&_b]:tabular-nums"></div>
-    </div>
-  </section>
+<!-- Layout: one centered column at every size. -->
+<div id="shell" class="mx-auto grid max-w-2xl gap-5 pt-4 pb-10 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:gap-6 sm:pt-6 lg:pt-8 lg:pb-14">
   <section class="flex min-w-0 flex-col gap-4">
     <header class="flex flex-wrap items-center justify-between gap-3">
       <div class="flex items-center gap-2 font-display text-2xl font-black tracking-[-.03em] [font-stretch:125%]">
@@ -36,36 +29,30 @@
 <div id="toast" role="status" hidden class="fixed bottom-[calc(20px+env(safe-area-inset-bottom,0px))] left-1/2 z-20 max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-[10px] bg-ink px-4 py-3 text-[.92rem] font-semibold text-ground shadow-lg"></div>
 
 <script>
-const KEY="gclifts-v7";
+const KEY="gclifts-v8";
 const PAY=["Cash App","Venmo","PayPal"];
-const PURPOSE=[["Groceries",1],["Pharmacy",1],["Clinic",1],["Job interview",1],["Class",0],["Other",0]];
 const SPOTS={
   "Russell Library":[96,74],"Maxwell Student Union":[150,108],"Student Health Center":[206,62],
   "The Village apts":[42,168],"Walmart Supercenter":[104,222],"Kroger":[184,188],
   "CVS Pharmacy":[262,196],"Downtown Milledgeville":[296,128],"Bus Station":[310,44],"Airport shuttle stop":[332,226]};
 const SCHOOLS=[{name:"Georgia College & State University",short:"GC",city:"Milledgeville, GA",domains:["gcsu.edu","bobcats.gcsu.edu"]}];
-const onMap=n=>Object.prototype.hasOwnProperty.call(SPOTS,n);
+const isStop=n=>Object.prototype.hasOwnProperty.call(SPOTS,n);
 const pos=n=>SPOTS[n];
 const norm=t=>String(t).trim().replace(/\s+/g," ");
 const known=t=>Object.keys(SPOTS).find(k=>k.toLowerCase()===norm(t).toLowerCase())||norm(t);
-const LABEL={"CVS Pharmacy":[0,20,"middle"],"Kroger":[0,-11,"middle"],"The Village apts":[0,20,"middle"],"Airport shuttle stop":[4,18,"end"]};
-const ROADS=[["Russell Library","Maxwell Student Union"],["Maxwell Student Union","Student Health Center"],["Russell Library","Student Health Center"],
-  ["Russell Library","The Village apts"],["The Village apts","Walmart Supercenter"],["Maxwell Student Union","Kroger"],["Walmart Supercenter","Kroger"],
-  ["Kroger","CVS Pharmacy"],["CVS Pharmacy","Downtown Milledgeville"],["Student Health Center","Bus Station"],["Bus Station","Downtown Milledgeville"],
-  ["Downtown Milledgeville","Maxwell Student Union"],["CVS Pharmacy","Airport shuttle stop"],["Downtown Milledgeville","Airport shuttle stop"]];
 const seedDrivers=[
   {id:"d1",name:"Jordan Lee",email:"jlee@bobcats.gcsu.edu",car:"Silver Honda Civic",seats:3,pay:["Venmo"],online:true,zone:"Maxwell Student Union"},
   {id:"d2",name:"Aisha Moore",email:"amoore@bobcats.gcsu.edu",car:"Blue Toyota RAV4",seats:4,pay:["PayPal","Venmo"],online:true,zone:"Russell Library"},
   {id:"d3",name:"Marcus Diaz",email:"mdiaz@bobcats.gcsu.edu",car:"Black Toyota Corolla",seats:3,pay:["Cash App"],online:true,zone:"The Village apts"},
   {id:"d4",name:"Priya Shah",email:"pshah@bobcats.gcsu.edu",car:"White VW Jetta",seats:2,pay:["Venmo","PayPal"],online:false,zone:"Downtown Milledgeville"}];
 const seedLog=[
-  {id:"r1",driverId:"d2",from:"Russell Library",to:"Walmart Supercenter",purpose:"Groceries",when:"2026-10-14T16:20",paidWith:"PayPal",rating:5,confirmed:true},
-  {id:"r2",driverId:"d1",from:"Maxwell Student Union",to:"Student Health Center",purpose:"Clinic",when:"2026-10-17T09:05",paidWith:"Venmo",rating:5,confirmed:true},
-  {id:"r3",driverId:"d2",from:"The Village apts",to:"CVS Pharmacy",purpose:"Pharmacy",when:"2026-10-19T18:40",paidWith:"Venmo",rating:4,confirmed:true}];
+  {id:"r1",driverId:"d2",from:"Russell Library",to:"Walmart Supercenter",when:"2026-10-14T16:20",paidWith:"PayPal",rating:5,confirmed:true},
+  {id:"r2",driverId:"d1",from:"Maxwell Student Union",to:"Student Health Center",when:"2026-10-17T09:05",paidWith:"Venmo",rating:5,confirmed:true},
+  {id:"r3",driverId:"d2",from:"The Village apts",to:"CVS Pharmacy",when:"2026-10-19T18:40",paidWith:"Venmo",rating:4,confirmed:true}];
 
 let S;
 function fresh(){return{user:null,tab:"ride",drivers:structuredClone(seedDrivers),log:[],seeded:{},
-  draft:{from:"Maxwell Student Union",to:"Walmart Supercenter",purpose:"Groceries",pay:["Venmo"],prefer:null},active:null}}
+  draft:{from:"Napier",to:"Cap",pay:["Venmo"],prefer:null},active:null}}
 function load(){try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){} if(!S||!S.draft)S=fresh(); S.seeded=S.seeded||{}}
 // Each rider gets their own copy of the sample rides the first time they sign in on this browser.
 // Resetting replaces only the sample rides; rides the rider took themselves stay.
@@ -73,9 +60,9 @@ function seedRidesFor(email){S.log=S.log.filter(r=>!(r.riderEmail===email&&r.sam
   S.log.push(...seedLog.map(r=>({...r,id:r.id+"-"+email,riderEmail:email,sample:true})));S.seeded[email]=true}
 // A new driver gets two sample riders so the Drive tab shows payment confirmation and messages right away.
 const seedRiders=[
-  {riderName:"Maya Garcia",riderEmail:"mgarcia@bobcats.gcsu.edu",from:"Maxwell Student Union",to:"CVS Pharmacy",purpose:"Pharmacy",when:"2026-10-20T15:10",rating:5,confirmed:false,
+  {riderName:"Maya Garcia",riderEmail:"mgarcia@bobcats.gcsu.edu",from:"Maxwell Student Union",to:"CVS Pharmacy",when:"2026-10-20T15:10",rating:5,confirmed:false,
     chat:[{who:"rider",text:"Thanks for the ride! I just sent the money.",t:Date.parse("2026-10-20T15:32")}]},
-  {riderName:"Tyler Brooks",riderEmail:"tbrooks@bobcats.gcsu.edu",from:"The Village apts",to:"Kroger",purpose:"Groceries",when:"2026-10-18T11:30",rating:5,confirmed:true,
+  {riderName:"Tyler Brooks",riderEmail:"tbrooks@bobcats.gcsu.edu",from:"The Village apts",to:"Kroger",when:"2026-10-18T11:30",rating:5,confirmed:true,
     chat:[{who:"rider",text:"I'm by the front gate.",t:Date.parse("2026-10-18T11:24")},{who:"driver",text:"Pulling up now.",t:Date.parse("2026-10-18T11:25")}]}];
 function seedRidersFor(d){if(S.seeded["driver:"+d.id])return;
   S.log.push(...seedRiders.map((r,i)=>({...structuredClone(r),id:"s"+i+"-"+d.id,driverId:d.id,paidWith:d.pay[0],sample:true})));S.seeded["driver:"+d.id]=true}
@@ -87,7 +74,6 @@ function confirmPending(){if(!S)return;let changed=false;
   S.log.forEach(r=>{if(!r.confirmed&&r.endedAt&&!String(r.driverId).startsWith("u-")&&Date.now()-r.endedAt>3000){r.confirmed=true;changed=true}});
   if(changed){save();if(S.user&&S.tab==="log"&&!S.active)render()}}
 setInterval(confirmPending,1000);
-const isEssential=p=>!!(PURPOSE.find(x=>x[0]===p)||[])[1];
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 load();
 
@@ -96,12 +82,10 @@ const esc=t=>String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",
 const initials=n=>n.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();
 const first=n=>n.split(" ")[0];
 const drv=id=>S.drivers.find(d=>d.id===id);
-// Straight-line distance between demo stops; null when either place is not on the demo map.
-const dist=(a,b)=>{if(!onMap(a)||!onMap(b))return null;const p=pos(a),q=pos(b);return Math.hypot(p[0]-q[0],p[1]-q[1])};
-const miles=(a,b)=>(dist(a,b)/42).toFixed(1);
+// Straight-line distance between demo stops; null when either place isn't a known stop.
+const dist=(a,b)=>{if(!isStop(a)||!isStop(b))return null;const p=pos(a),q=pos(b);return Math.hypot(p[0]-q[0],p[1]-q[1])};
 function toast(m){const t=$("#toast");t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2400)}
 const opts=sel=>Object.keys(SPOTS).map(s=>`<option${s===sel?" selected":""}>${esc(s)}</option>`).join("");
-const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /* ---------- shared Tailwind class sets (full strings so Tailwind can find them) ---------- */
 const UI={
@@ -131,52 +115,27 @@ const UI={
   profBtn:"relative flex w-full flex-col gap-3 rounded-2xl border-[1.5px] border-rule bg-panel p-4 text-left text-ink hover:border-soft aria-pressed:border-route aria-pressed:shadow-[inset_0_0_0_2px_var(--route)]",
 };
 
-/* ---------- map ---------- */
-function curve(a,b){const [x1,y1]=pos(a),[x2,y2]=pos(b);const mx=(x1+x2)/2,my=(y1+y2)/2;const dx=x2-x1,dy=y2-y1;
-  return `M${x1} ${y1} Q${mx-dy*.18} ${my+dx*.18} ${x2} ${y2}`}
-function drawMap(){
-  const a=S.active, from=a?a.from:S.draft.from, to=a?a.to:S.draft.to;
-  const d=a?drv(a.driverId):null;
-  let s=`<rect width="360" height="250" fill="var(--panel)"/>
-  <path d="M60 40 C110 18 240 22 236 74 C232 128 186 140 128 136 C70 132 30 84 60 40Z" fill="var(--campus)"/>
-  <text x="70" y="38" font-family="Archivo, system-ui, sans-serif" font-stretch="125%" font-weight="800" font-size="10" fill="var(--soft)">GC campus, Milledgeville</text>`;
-  s+=ROADS.map(([p,q])=>`<line x1="${SPOTS[p][0]}" y1="${SPOTS[p][1]}" x2="${SPOTS[q][0]}" y2="${SPOTS[q][1]}" stroke="var(--road)" stroke-width="5" stroke-linecap="round"/>`).join("");
-  if(onMap(from)&&onMap(to)&&from!==to)s+=`<path id="rt" d="${curve(from,to)}" fill="none" stroke="var(--route)" stroke-width="4" stroke-linecap="round" ${a?'stroke-dasharray="1 0"':'stroke-dasharray="2 7"'}/>`;
-  if(d&&onMap(from)&&d.zone!==from)s+=`<path id="ap" d="${curve(d.zone,from)}" fill="none" stroke="var(--soft)" stroke-width="2" stroke-dasharray="3 4"/>`;
-  for(const [name,[x,y]] of Object.entries(SPOTS)){
-    const isA=name===from,isB=name===to;
-    const r=isA||isB?7:4;
-    const fill=isB?"var(--permit)":isA?"var(--panel)":"var(--soft)";
-    const stroke=isB?"var(--permit-ink)":isA?"var(--route)":"none";
-    const right=x>250,L=LABEL[name]||[right?-11:11,4,right?"end":"start"];
-    s+=`<circle cx="${x}" cy="${y}" r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="${isA?3:isB?2:0}"/>
-      <text x="${x+L[0]}" y="${y+L[1]}" text-anchor="${L[2]}" font-family="Public Sans, system-ui, sans-serif" font-size="${isA||isB?10.5:9}" font-weight="${isA||isB?700:400}" fill="${isA||isB?"var(--ink)":"var(--soft)"}">${esc(name)}</text>`;
-  }
-  if(!a){S.drivers.filter(x=>x.online&&x.email!==S.user?.email).forEach((x,i)=>{const [cx,cy]=pos(x.zone);
-    s+=`<g transform="translate(${cx+(i%2?-9:9)} ${cy-13})"><rect x="-7" y="-5" width="14" height="10" rx="3" fill="var(--route)"/><title>${esc(x.name)} is online</title></g>`})}
-  else s+=`<g id="car"><rect x="-8" y="-6" width="16" height="12" rx="3.5" fill="var(--ink)"/><rect x="-4" y="-3" width="8" height="5" rx="1" fill="var(--permit)"/></g>`;
-  $("#map").innerHTML=s;
-  const cap=$("#mapcap");
-  if(!from||!to){cap.innerHTML=`<span>Type a pickup and a drop-off to see your route.</span>`}
-  else if(from===to){cap.innerHTML=`<span>Pick two different places.</span>`}
-  else if(dist(from,to)===null){const off=[from,to].filter(n=>!onMap(n));
-    cap.innerHTML=`<span>${off.map(esc).join(" and ")} ${off.length>1?"aren't":"isn't"} on the demo map, so distance and drive time aren't shown.</span>`}
-  else cap.innerHTML=`<span>${esc(from)} to ${esc(to)}</span><span><b>${miles(from,to)} mi</b>, about <b>${Math.max(4,Math.round(dist(from,to)/9))} min</b> drive</span>`;
-  if(a&&d)animateCar(d.zone===from?null:$("#ap"));
+/* ---------- trip ---------- */
+// Distance and drive time between two known stops, shown under the pickup and drop-off fields.
+const samePlace=(a,b)=>a.toLowerCase()===b.toLowerCase();
+function routeHint(from,to){
+  if(!from||!to)return"Type a pickup and a drop-off.";
+  if(samePlace(from,to))return"Pick two different places.";
+  const km=dist(from,to);
+  if(km===null)return"Distance and drive time show for known campus and town stops.";
+  return`${(km/42).toFixed(1)} mi, about ${Math.max(4,Math.round(km/9))} min drive.`;
 }
 let raf;
-// Simulated live location: the car drives from the driver's area to the pickup and the status updates as it goes.
-function animateCar(path){
-  cancelAnimationFrame(raf);const car=$("#car");if(!car)return;
-  const a=S.active,d=drv(a.driverId);
-  const at=onMap(a.from)?a.from:d.zone,[px,py]=pos(at);
-  const total=onMap(a.from)?dist(d.zone,a.from)/42:null;
-  const dur=reduce?0:12000;
+// Simulated progress: the driver heads from their area to the pickup and the status card updates as they go.
+function trackRide(){
+  cancelAnimationFrame(raf);const a=S.active;if(!a||!$("#st"))return;
+  const d=drv(a.driverId);
+  const total=isStop(a.from)?dist(d.zone,a.from)/42:null;
   if(!a.startedAt){a.startedAt=Date.now();save()}
   const step=()=>{
-    const k=dur?Math.min(1,(Date.now()-a.startedAt)/dur):1;
-    if(path){const e=1-Math.pow(1-k,3),pt=path.getPointAtLength(path.getTotalLength()*e*.94);car.setAttribute("transform",`translate(${pt.x} ${pt.y})`)}
-    else car.setAttribute("transform",`translate(${px} ${py-14})`);
+    // Stop once the ride screen is gone; it picks up from startedAt when the rider comes back.
+    if(S.active!==a||!$("#st"))return;
+    const k=Math.min(1,(Date.now()-a.startedAt)/12000);
     trip(k,total);
     if(k<1)raf=requestAnimationFrame(step);
   };
@@ -196,11 +155,9 @@ function trip(k,total){
 
 /* ---------- matching ---------- */
 function match(){
-  const {from,pay,prefer,purpose}=S.draft,me=S.user.email,ess=isEssential(purpose),log=myLog();
-  const online=S.drivers.filter(d=>d.online&&d.email!==me&&openSeats(d)>0);
-  // Essential trips: drivers hold their last open seat for them. Other trips need at least two open seats.
-  const cands=online.filter(d=>ess||openSeats(d)>=2);
-  if(!cands.length)return online.length?{full:true}:null;
+  const {from,pay,prefer}=S.draft,me=S.user.email,log=myLog();
+  const cands=S.drivers.filter(d=>d.online&&d.email!==me&&openSeats(d)>0);
+  if(!cands.length)return null;
   const scored=cands.map(d=>{
     const past=log.filter(r=>r.driverId===d.id);
     const km=dist(d.zone,from);
@@ -211,7 +168,6 @@ function match(){
     if(past.length){score+=10+past.length*3+avg;why.push(`${past.length} past ride${past.length>1?"s":""} together, ${avg.toFixed(1)} stars`)}
     if(overlap.length){score+=8;why.push(`Takes ${overlap.join(" or ")}`)}else if(pay.length)score-=6;
     if(d.zone===from)why.push(`Already at ${from}`);
-    if(ess&&openSeats(d)===1)why.push("Held their last seat for an essential trip");
     return{d,score,why,eta:km===null?null:Math.max(2,Math.round(km/10)+2)};
   }).sort((x,y)=>y.score-x.score);
   return scored[0];
@@ -241,13 +197,10 @@ const code=()=>"GC-"+String(Math.floor(1000+Math.random()*9000));
 /* ---------- views ---------- */
 function render(){
   if(S.active&&!drv(S.active.driverId)){S.active=null;save();toast("Your driver is no longer available. Request a new ride.")}
-  // The sign-in screens are a single centered column; the map appears once the student is signed in.
-  $("#mapsec").hidden=!S.user;$("#shell").toggleAttribute("data-signed",!!S.user);
   $("#tabs").hidden=!S.user;
   $("#who").textContent=S.user?(S.user.school?S.user.school+", ":"")+S.user.email:"";
   document.querySelectorAll("#tabs button").forEach(b=>b.setAttribute("aria-current",b.dataset.tab===S.tab?"page":"false"));
   if(!S.user)signin();else({ride:S.active?activeView:rideView,drive:driveView,log:logView})[S.tab]();
-  drawMap();
 }
 
 let pickedSchool=null,pending=null;
@@ -319,10 +272,8 @@ function rideView(){
         <span class="size-3 justify-self-center rounded-full border-[3px] border-route bg-panel"></span><label for="from" class="${UI.label}">Pickup<input id="from" class="${UI.input}" value="${esc(D.from)}" placeholder="Building or address" autocomplete="off"></label>
         <span class="h-3.5 w-0.5 justify-self-center bg-rule"></span><span></span>
         <span class="size-3 justify-self-center rounded-full bg-permit shadow-[inset_0_0_0_2px_var(--permit-ink)]"></span><label for="to" class="${UI.label}">Drop-off<input id="to" class="${UI.input}" value="${esc(D.to)}" placeholder="Store, clinic or address" autocomplete="off"></label>
+        <span></span><span class="${UI.hint}" id="route">${esc(routeHint(D.from,D.to))}</span>
       </div>
-      <div class="${UI.tight}"><span class="${UI.legend}">What's the trip for?</span>
-        <div class="${UI.chips}" id="purpose">${PURPOSE.map(([p])=>`<button type="button" class="${UI.chip}" aria-pressed="${p===D.purpose}">${p}</button>`).join("")}</div>
-        <span class="${UI.hint}" id="phint"></span></div>
       <div class="${UI.tight}"><span class="${UI.legend}">You can pay with</span>
         <div class="${UI.chips}" id="pay">${PAY.map(p=>`<button type="button" class="${UI.chip}" aria-pressed="${D.pay.includes(p)}">${p}</button>`).join("")}</div></div>
       <p class="${UI.err}" id="err"></p>
@@ -334,36 +285,35 @@ function rideView(){
       <div class="${UI.profiles}" id="again">${past.map(d=>profile(d,{tag:"button",attrs:`type="button" data-id="${d.id}" aria-pressed="${D.prefer===d.id}"`,paid:D.pay,
         footer:`<span></span><span class="req text-sm font-bold text-route">${D.prefer===d.id?"Requested":"Request"}</span>`})).join("")}</div></div>`:""}
   </div>`;
-  const hint=()=>{const ess=PURPOSE.find(p=>p[0]===S.draft.purpose)[1];$("#phint").textContent=ess?"Essential trip. Drivers hold their last open seat for these.":"Drivers hold their last open seat for essential trips (groceries, pharmacy, clinic, job interview)."};hint();
-  $("#from").oninput=e=>{D.from=known(e.target.value);save();drawMap()};
-  $("#to").oninput=e=>{D.to=known(e.target.value);save();drawMap()};
-  $("#purpose").onclick=e=>{const c=e.target.closest("button");if(!c)return;D.purpose=c.textContent;
-    $("#purpose").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===c));hint();save()};
+  const route=()=>$("#route").textContent=routeHint(D.from,D.to);
+  $("#from").oninput=e=>{D.from=known(e.target.value);save();route()};
+  $("#to").oninput=e=>{D.to=known(e.target.value);save();route()};
   $("#pay").onclick=e=>{const c=e.target.closest("button");if(!c)return;const on=c.getAttribute("aria-pressed")!=="true";c.setAttribute("aria-pressed",on);
     D.pay=on?[...D.pay,c.textContent]:D.pay.filter(p=>p!==c.textContent);save()};
   const ag=$("#again");if(ag)ag.onclick=e=>{const b=e.target.closest("[data-id]");if(!b)return;D.prefer=D.prefer===b.dataset.id?null:b.dataset.id;
     ag.querySelectorAll("[data-id]").forEach(x=>{const on=x.dataset.id===D.prefer;x.setAttribute("aria-pressed",on);x.querySelector(".req").textContent=on?"Requested":"Request"});save()};
   $("#go").onclick=()=>{
     if(!D.from||!D.to)return $("#err").textContent="Type where you want to be picked up and dropped off.";
-    if(D.from.toLowerCase()===D.to.toLowerCase())return $("#err").textContent="Pickup and drop-off are the same place. Change one of them.";
+    if(samePlace(D.from,D.to))return $("#err").textContent="Pickup and drop-off are the same place. Change one of them.";
     if(!D.pay.length)return $("#err").textContent="Choose at least one way you can pay.";
     const m=match();
     if(!m)return $("#err").textContent="No drivers are online right now. Try again in a few minutes.";
-    if(m.full)return $("#err").textContent="Every online driver has one seat left, and it's held for essential trips. Try again soon, or pick an essential trip type if that's what this is.";
-    S.active={driverId:m.d.id,from:D.from,to:D.to,purpose:D.purpose,why:m.why,eta:m.eta,pay:[...D.pay],code:code(),when:new Date().toISOString()};
+    S.active={driverId:m.d.id,from:D.from,to:D.to,why:m.why,eta:m.eta,pay:[...D.pay],code:code(),when:new Date().toISOString()};
     D.prefer=null;save();render();toast(`Matched with ${first(m.d.name)}`);
   };
 }
 
 const REPLIES=[[/where|which|spot|find/i,"I'll pull up right out front. Look for the {car}."],[/late|minute|wait|hold/i,"No problem, I'll wait a couple of minutes."],
   [/pay|venmo|paypal|cash ?app/i,"{pay} works for me. Send it after the ride."],[/thank|thx|ty\b/i,"Anytime!"],[/.*/,"Sounds good, see you soon."]];
+// Keyed by driver id, not stored on the driver, so browsers with a saved driver list get it too.
+const GREETING={d2:"Hi, im in a Blue Toyota RAV4. Im 3 minutes out. It will be $3. Venmo: @Alisha"};
 const MSG={
   me:"max-w-[80%] self-end rounded-[14px] rounded-br-[4px] bg-route px-3 py-2 text-[.92rem] leading-[1.4] [overflow-wrap:anywhere] text-panel",
   them:"max-w-[80%] self-start rounded-[14px] rounded-bl-[4px] border border-rule bg-ground px-3 py-2 text-[.92rem] leading-[1.4] [overflow-wrap:anywhere]",
 };
 function activeView(){
   const a=S.active,d=drv(a.driverId),ok=d.pay.filter(p=>a.pay.includes(p)),n=first(d.name);
-  if(!a.chat){a.chat=[{who:"them",text:`Hey, it's ${n}. I'm on my way in the ${d.car}.`,t:Date.now()}];save()}
+  if(!a.chat){a.chat=[{who:"them",text:GREETING[d.id]||`Hey, it's ${n}. I'm on my way in the ${d.car}.`,t:Date.now()}];save()}
   const shareText=`I'm riding with ${d.name} (${d.car}) from ${a.from} to ${a.to}. Ride code ${a.code}.${a.eta===null?"":` ETA ${a.eta} min.`} Sent from GClifts.`;
   const tm=t=>new Date(t).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"});
   const bubbles=()=>a.chat.map(m=>`<div class="${MSG[m.who]}">${esc(m.text)}<small class="mt-0.5 block text-[.72rem] opacity-75">${m.who==="me"?"You":esc(n)}, ${tm(m.t)}</small></div>`).join("");
@@ -373,13 +323,11 @@ function activeView(){
       <div class="grid grid-cols-4 gap-1.5 *:h-1.5 *:rounded-[3px] *:bg-rule [&>.on]:bg-route" id="steps"><span class="on"></span><span></span><span></span><span></span></div>
       <div class="grid grid-cols-4 gap-1.5 text-xs text-soft [&_b]:text-ink" id="steplabels"><span>Matched</span><span>On the way</span><span>Arriving</span><span>Here</span></div>
     </div>
-    <div class="relative mx-auto w-full max-w-[360px] origin-[50%_33px] rounded-[26px_26px_14px_14px] bg-permit px-[22px] pt-[58px] pb-[22px] text-permit-ink shadow-[0_18px_30px_-18px_rgba(40,34,0,.55)] motion-safe:animate-swing before:absolute before:top-[18px] before:left-1/2 before:-ml-[15px] before:size-[30px] before:rounded-full before:bg-ground before:shadow-[inset_0_2px_4px_rgba(0,0,0,.25)]" role="group" aria-label="Your matched ride">
-      <div class="flex justify-between border-b-2 border-permit-ink pb-2 font-display text-[.95rem] font-extrabold [font-stretch:125%]"><span>GClifts</span><span>${esc(a.purpose)}</span></div>
-      <div class="mt-3.5 font-display text-[clamp(3rem,14vw,4.4rem)] leading-none font-black tracking-[.02em] tabular-nums [font-stretch:62%]">${a.code}</div>
-      <div class="text-sm font-semibold">Ask your driver to say this code before you get in.</div>
-      <div class="mt-4 grid grid-cols-[1fr_auto] items-end gap-x-3 gap-y-0.5"><div class="min-w-0"><h3 class="m-0 font-display text-[1.35rem] font-bold [font-stretch:110%]">${esc(d.name)}</h3><div>${esc(d.car)}</div></div>
-        ${a.eta===null?`<div class="text-right"><small class="block text-[.8rem] font-semibold">On the way</small></div>`:`<div class="text-right font-display text-[2rem] leading-none font-black tabular-nums [font-stretch:80%]"><span id="etan">${a.eta}</span><small class="block font-body text-[.8rem] font-semibold">min away</small></div>`}</div>
-      <div class="mt-3.5 border-t-2 border-dashed border-permit-ink pt-2.5 text-sm">${a.why.length?esc(a.why.join(". "))+".":"Closest driver who's online."}</div>
+    <div class="${UI.form}" role="group" aria-label="Your matched ride">
+      <div class="grid grid-cols-[1fr_auto] items-end gap-x-3 gap-y-0.5"><div class="min-w-0"><h3 class="m-0 font-display text-[1.35rem] font-bold [font-stretch:110%]">${esc(d.name)}</h3><div class="${UI.sub}">${esc(d.car)}</div></div>
+        ${a.eta===null?`<div class="text-right"><small class="block text-[.8rem] font-semibold text-soft">On the way</small></div>`:`<div class="text-right font-display text-[2rem] leading-none font-black tabular-nums [font-stretch:80%]"><span id="etan">${a.eta}</span><small class="block font-body text-[.8rem] font-semibold text-soft">min away</small></div>`}</div>
+      <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-y border-rule py-3"><span class="text-sm font-semibold">Ride code. Ask ${esc(n)} to say it before you get in.</span><span class="font-display text-[2rem] leading-none font-black tracking-[.02em] tabular-nums [font-stretch:62%]">${a.code}</span></div>
+      <p class="${UI.hint}">${a.why.length?esc(a.why.join(". "))+".":"Closest driver who's online."}</p>
     </div>
     <div class="${UI.form}">
       <h3 class="${UI.h3}">Message ${esc(n)}</h3>
@@ -404,6 +352,7 @@ function activeView(){
       <button class="${UI.go}" id="done">Finish ride and save to log</button>
       <button class="${UI.quiet}" id="cancel">Cancel this ride</button>
     </div></div>`;
+  trackRide();
   const box=$("#chat");box.scrollTop=box.scrollHeight;
   $("#chatf").onsubmit=e=>{e.preventDefault();const t=$("#chatin").value.trim();if(!t)return;
     a.chat.push({who:"me",text:t,t:Date.now()});$("#chatin").value="";save();box.innerHTML=bubbles();box.scrollTop=box.scrollHeight;
@@ -411,7 +360,7 @@ function activeView(){
     setTimeout(()=>{if(S.active!==a)return;const r=REPLIES.find(([re])=>re.test(t))[1].replace("{car}",d.car).replace("{pay}",ok[0]||d.pay[0]);
       a.chat.push({who:"them",text:r,t:Date.now()});save();const b=$("#chat");if(!b)return;$("#typing").textContent="";b.innerHTML=bubbles();b.scrollTop=b.scrollHeight},1400)};
   $("#copy").onclick=async()=>{const i=$("#sharetxt");try{await navigator.clipboard.writeText(i.value);toast("Trip details copied")}catch(e){i.select();toast("Selected. Press copy on your keyboard.")}};
-  $("#done").onclick=()=>{S.log.unshift({id:"r"+Date.now(),riderEmail:S.user.email,driverId:d.id,from:a.from,to:a.to,purpose:a.purpose,when:a.when,
+  $("#done").onclick=()=>{S.log.unshift({id:"r"+Date.now(),riderEmail:S.user.email,driverId:d.id,from:a.from,to:a.to,when:a.when,
       paidWith:$("#paid").value,rating:+$("#rate").value,confirmed:false,endedAt:Date.now(),
       riderName:S.user.name,chat:a.chat.map(m=>({...m,who:m.who==="me"?"rider":"driver"}))});
     S.active=null;S.tab="log";save();render();toast(`Ride saved. Waiting for ${n} to confirm your payment.`)};
@@ -436,10 +385,9 @@ function riderCard(r){const n=esc(first(r.riderName));
 function driveView(){
   const me=S.drivers.find(d=>d.email===S.user.email);
   const riders=me?S.log.filter(r=>r.driverId===me.id).map(r=>({...r,chat:r.chat||[],riderName:r.riderName||"A rider"})).sort((a,b)=>new Date(b.when)-new Date(a.when)):[];
-  const essentials=PURPOSE.filter(p=>p[1]).map(p=>p[0]).join(", ").toLowerCase();
   $("#view").innerHTML=`<div class="${UI.stack}">
     <h2 class="${UI.h2}">Drive for classmates</h2>
-    <p class="${UI.lede}">Riders are matched with you automatically and see how you like to be paid. After each ride you confirm the payment arrived, so you're not chasing anyone in a group chat. Your last open seat is held for essential trips (${essentials}).</p>
+    <p class="${UI.lede}">Riders are matched with you automatically and see how you like to be paid. After each ride you confirm the payment arrived, so you're not chasing anyone in a group chat.</p>
     <div class="${UI.form}">
       <label for="online" class="flex min-h-11 items-center justify-between gap-3 text-sm font-bold"><span>I'm available to drive now</span>
         <input id="online" type="checkbox" class="size-[22px] flex-none accent-route" ${me?.online?"checked":""}></label>
@@ -478,7 +426,7 @@ function driveView(){
     const data={name:S.user.name,email:S.user.email,car,
       seats:Math.max(1,+$("#seats").value||1),pay,online:$("#online").checked,zone:$("#zone").value};
     if(me)Object.assign(me,data);else S.drivers.push({id:"u-"+S.user.email,...data});
-    seedRidersFor(S.drivers.find(d=>d.email===S.user.email));save();driveView();drawMap();toast(data.online?"Driver profile saved. You're available.":"Driver profile saved");
+    seedRidersFor(S.drivers.find(d=>d.email===S.user.email));save();driveView();toast(data.online?"Driver profile saved. You're available.":"Driver profile saved");
   };
 }
 
@@ -500,12 +448,12 @@ function logView(){
     ${log.length?`<div class="${UI.tight}"><h3 class="${UI.h3}">Every ride</h3>
       <ul class="flex flex-col sm:hidden *:border-t *:border-rule *:py-3">
       ${log.map(r=>`<li><div class="flex justify-between gap-3"><span class="font-semibold">${esc(r.from)} to ${esc(r.to)}</span><span class="shrink-0 tabular-nums text-soft">${fmt(r.when)}</span></div>
-        <div class="${UI.sub}">${esc(r.purpose||"")}${r.purpose?" · ":""}${esc(name(r))} · ${esc(r.paidWith)} · <span class="text-[#c99400]">${"★".repeat(r.rating)}</span></div>
+        <div class="${UI.sub}">${esc(name(r))} · ${esc(r.paidWith)} · <span class="text-[#c99400]">${"★".repeat(r.rating)}</span></div>
         <div>${paystat(r)}</div></li>`).join("")}
       </ul>
       <div class="hidden overflow-x-auto sm:block"><table class="w-full min-w-[440px] border-collapse text-sm [&_td]:border-b [&_td]:border-rule [&_td]:px-2 [&_td]:py-2.5 [&_td]:text-left [&_th]:border-b [&_th]:border-rule [&_th]:px-2 [&_th]:py-2.5 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:text-soft">
-      <thead><tr><th>Date</th><th>Trip</th><th>For</th><th>Driver</th><th>Payment</th><th>Rating</th></tr></thead><tbody>
-      ${log.map(r=>`<tr><td class="whitespace-nowrap tabular-nums">${fmt(r.when)}</td><td>${esc(r.from)} to ${esc(r.to)}</td><td>${esc(r.purpose||"")}</td><td>${esc(name(r))}</td><td>${esc(r.paidWith)} ${paystat(r)}</td><td class="whitespace-nowrap tabular-nums">${"★".repeat(r.rating)}</td></tr>`).join("")}
+      <thead><tr><th>Date</th><th>Trip</th><th>Driver</th><th>Payment</th><th>Rating</th></tr></thead><tbody>
+      ${log.map(r=>`<tr><td class="whitespace-nowrap tabular-nums">${fmt(r.when)}</td><td>${esc(r.from)} to ${esc(r.to)}</td><td>${esc(name(r))}</td><td>${esc(r.paidWith)} ${paystat(r)}</td><td class="whitespace-nowrap tabular-nums">${"★".repeat(r.rating)}</td></tr>`).join("")}
       </tbody></table></div></div>`:""}
     <div class="flex flex-wrap gap-2.5"><button class="${UI.quiet}" id="reset">Reset my sample rides</button><button class="${UI.quiet}" id="out">Sign out</button></div>
   </div>`;
