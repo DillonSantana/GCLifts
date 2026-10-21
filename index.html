@@ -47,7 +47,7 @@ const seedDrivers=[
   {id:"d4",name:"Priya Shah",email:"pshah@bobcats.gcsu.edu",car:"White VW Jetta",seats:2,pay:["Venmo","PayPal"],online:false,zone:"Downtown Milledgeville"}];
 const seedLog=[
   {id:"r1",driverId:"d2",from:"Russell Library",to:"Walmart Supercenter",when:"2026-10-14T16:20",paidWith:"PayPal",rating:5,confirmed:true},
-  {id:"r2",driverId:"d1",from:"Maxwell Student Union",to:"Student Health Center",when:"2026-10-17T09:05",paidWith:"Venmo",rating:5,confirmed:true},
+  {id:"r2",driverId:"d1",from:"Maxwell Student Union",to:"Student Health Center",when:"2026-10-17T09:05",paidWith:"Venmo",rating:5,review:"Waited while I checked in. Really appreciated it.",confirmed:true},
   {id:"r3",driverId:"d2",from:"The Village apts",to:"CVS Pharmacy",when:"2026-10-19T18:40",paidWith:"Venmo",rating:4,confirmed:true}];
 
 let S;
@@ -60,7 +60,7 @@ function seedRidesFor(email){S.log=S.log.filter(r=>!(r.riderEmail===email&&r.sam
   S.log.push(...seedLog.map(r=>({...r,id:r.id+"-"+email,riderEmail:email,sample:true})));S.seeded[email]=true}
 // A new driver gets two sample riders so the Drive tab shows payment confirmation and messages right away.
 const seedRiders=[
-  {riderName:"Maya Garcia",riderEmail:"mgarcia@bobcats.gcsu.edu",from:"Maxwell Student Union",to:"CVS Pharmacy",when:"2026-10-20T15:10",rating:5,confirmed:false,
+  {riderName:"Maya Garcia",riderEmail:"mgarcia@bobcats.gcsu.edu",from:"Maxwell Student Union",to:"CVS Pharmacy",when:"2026-10-20T15:10",rating:5,review:"Super friendly and right on time.",confirmed:false,
     chat:[{who:"rider",text:"Thanks for the ride! I just sent the money.",t:Date.parse("2026-10-20T15:32")}]},
   {riderName:"Tyler Brooks",riderEmail:"tbrooks@bobcats.gcsu.edu",from:"The Village apts",to:"Kroger",when:"2026-10-18T11:30",rating:5,confirmed:true,
     chat:[{who:"rider",text:"I'm by the front gate.",t:Date.parse("2026-10-18T11:24")},{who:"driver",text:"Pulling up now.",t:Date.parse("2026-10-18T11:25")}]}];
@@ -311,6 +311,25 @@ const MSG={
   me:"max-w-[80%] self-end rounded-[14px] rounded-br-[4px] bg-route px-3 py-2 text-[.92rem] leading-[1.4] [overflow-wrap:anywhere] text-panel",
   them:"max-w-[80%] self-start rounded-[14px] rounded-bl-[4px] border border-rule bg-ground px-3 py-2 text-[.92rem] leading-[1.4] [overflow-wrap:anywhere]",
 };
+const STAR_WORDS=["","Poor","Fair","Okay","Good","Great"];
+const stars=n=>`<span class="text-[#c99400]" role="img" aria-label="${n} of 5 stars">${"★".repeat(n)}</span>`;
+// Native radios keep arrow-key and screen-reader support; the stars are their labels.
+function starPicker(n){
+  return `<fieldset class="flex flex-col gap-1.5" id="stars"><legend class="${UI.legend}">Rate your ride with ${esc(n)}</legend>
+    <div class="flex flex-wrap items-center gap-1">${[1,2,3,4,5].map(v=>`<label class="cursor-pointer"><input type="radio" name="rate" value="${v}" class="peer sr-only" aria-label="${v} star${v>1?"s":""}, ${STAR_WORDS[v]}">
+      <span aria-hidden="true" class="grid size-11 place-items-center rounded-lg text-[2rem] leading-none text-soft peer-focus-visible:outline-[3px] peer-focus-visible:outline-route data-[on]:text-[#c99400]">☆</span></label>`).join("")}
+      <span class="ml-2 text-sm font-bold" id="starword"></span></div></fieldset>`;
+}
+// The pick lives on the active ride so switching tabs and back doesn't lose it.
+function wireStars(a){
+  const box=$("#stars"),marks=[...box.querySelectorAll("span[aria-hidden]")];
+  const show=v=>{marks.forEach((m,i)=>{const on=i<v;m.toggleAttribute("data-on",on);m.textContent=on?"★":"☆"});$("#starword").textContent=STAR_WORDS[v]};
+  const picked=()=>+(box.querySelector("input:checked")?.value||0);
+  box.onchange=()=>{a.rating=picked();save();show(a.rating);$("#doneErr").textContent=""};
+  box.onmouseover=e=>{const i=e.target.closest("label")?.querySelector("input");if(i)show(+i.value)};
+  box.onmouseleave=()=>show(picked());
+  if(a.rating){box.querySelector(`input[value="${a.rating}"]`).checked=true;show(a.rating)}
+}
 function activeView(){
   const a=S.active,d=drv(a.driverId),ok=d.pay.filter(p=>a.pay.includes(p)),n=first(d.name);
   if(!a.chat){a.chat=[{who:"them",text:GREETING[d.id]||`Hey, it's ${n}. I'm on my way in the ${d.car}.`,t:Date.now()}];save()}
@@ -345,10 +364,10 @@ function activeView(){
     </div>
     <div class="${UI.form}">
       <h3 class="${UI.h3}">When you arrive</h3>
-      <div class="grid gap-3 sm:grid-cols-2">
-        <label for="paid" class="${UI.label}">You paid with<select id="paid" class="${UI.input}">${d.pay.map(p=>`<option${p===ok[0]?" selected":""}>${esc(p)}</option>`).join("")}</select></label>
-        <label for="rate" class="${UI.label}">Rating<select id="rate" class="${UI.input}">${[5,4,3,2,1].map(v=>`<option value="${v}">${v} star${v>1?"s":""}</option>`).join("")}</select></label>
-      </div>
+      <label for="paid" class="${UI.label}">You paid with<select id="paid" class="${UI.input}">${d.pay.map(p=>`<option${p===ok[0]?" selected":""}>${esc(p)}</option>`).join("")}</select></label>
+      ${starPicker(n)}
+      <label for="review" class="${UI.label}"><span>Leave a review <span class="font-normal text-soft">(optional)</span></span><textarea id="review" rows="3" maxlength="280" class="${UI.input} resize-y" placeholder="What stood out about the ride?">${esc(a.review||"")}</textarea></label>
+      <p class="${UI.err}" id="doneErr"></p>
       <button class="${UI.go}" id="done">Finish ride and save to log</button>
       <button class="${UI.quiet}" id="cancel">Cancel this ride</button>
     </div></div>`;
@@ -360,8 +379,12 @@ function activeView(){
     setTimeout(()=>{if(S.active!==a)return;const r=REPLIES.find(([re])=>re.test(t))[1].replace("{car}",d.car).replace("{pay}",ok[0]||d.pay[0]);
       a.chat.push({who:"them",text:r,t:Date.now()});save();const b=$("#chat");if(!b)return;$("#typing").textContent="";b.innerHTML=bubbles();b.scrollTop=b.scrollHeight},1400)};
   $("#copy").onclick=async()=>{const i=$("#sharetxt");try{await navigator.clipboard.writeText(i.value);toast("Trip details copied")}catch(e){i.select();toast("Selected. Press copy on your keyboard.")}};
-  $("#done").onclick=()=>{S.log.unshift({id:"r"+Date.now(),riderEmail:S.user.email,driverId:d.id,from:a.from,to:a.to,when:a.when,
-      paidWith:$("#paid").value,rating:+$("#rate").value,confirmed:false,endedAt:Date.now(),
+  wireStars(a);
+  $("#review").oninput=e=>{a.review=e.target.value;save()};
+  $("#done").onclick=()=>{const rating=+(document.querySelector("#stars input:checked")?.value||0);
+    if(!rating)return $("#doneErr").textContent=`Tap a star to rate your ride with ${n}.`;
+    S.log.unshift({id:"r"+Date.now(),riderEmail:S.user.email,driverId:d.id,from:a.from,to:a.to,when:a.when,
+      paidWith:$("#paid").value,rating,review:$("#review").value.trim(),confirmed:false,endedAt:Date.now(),
       riderName:S.user.name,chat:a.chat.map(m=>({...m,who:m.who==="me"?"rider":"driver"}))});
     S.active=null;S.tab="log";save();render();toast(`Ride saved. Waiting for ${n} to confirm your payment.`)};
   $("#cancel").onclick=()=>{S.active=null;save();render();toast("Ride canceled")};
@@ -375,6 +398,7 @@ function riderCard(r){const n=esc(first(r.riderName));
       <div class="min-w-0 flex-1"><h3 class="${UI.h3}">${esc(r.riderName)}</h3><div class="${UI.sub}">${esc(r.from)} to ${esc(r.to)} · ${fmtDay(r.when)}</div></div></div>
     <div class="flex flex-wrap items-center justify-between gap-2"><span class="text-sm">Paid with <b>${esc(r.paidWith)}</b> · ${r.confirmed?`<span class="text-[.82rem] font-bold text-route">You confirmed it</span>`:`<span class="text-[.82rem] font-bold text-alert">Needs your confirmation</span>`}</span>
       ${r.confirmed?"":`<button type="button" class="${UI.quiet}" data-act="confirm">Confirm payment received</button>`}</div>
+    <div class="text-sm">${n} rated you ${stars(r.rating)}${r.review?`<p class="mt-1 text-soft [overflow-wrap:anywhere]">"${esc(r.review)}"</p>`:""}</div>
     <details class="border-t border-rule pt-3"><summary class="min-h-11 cursor-pointer content-center text-sm font-bold text-route">Messages with ${n} (${r.chat.length})</summary>
       <div class="mt-2 flex flex-col gap-2">
         <div class="flex max-h-[220px] flex-col gap-2 overflow-y-auto px-0.5 py-1" data-chat>${driverBubbles(r)}</div>
@@ -448,12 +472,13 @@ function logView(){
     ${log.length?`<div class="${UI.tight}"><h3 class="${UI.h3}">Every ride</h3>
       <ul class="flex flex-col sm:hidden *:border-t *:border-rule *:py-3">
       ${log.map(r=>`<li><div class="flex justify-between gap-3"><span class="font-semibold">${esc(r.from)} to ${esc(r.to)}</span><span class="shrink-0 tabular-nums text-soft">${fmt(r.when)}</span></div>
-        <div class="${UI.sub}">${esc(name(r))} · ${esc(r.paidWith)} · <span class="text-[#c99400]">${"★".repeat(r.rating)}</span></div>
+        <div class="${UI.sub}">${esc(name(r))} · ${esc(r.paidWith)} · ${stars(r.rating)}</div>
+        ${r.review?`<p class="${UI.sub} [overflow-wrap:anywhere]">"${esc(r.review)}"</p>`:""}
         <div>${paystat(r)}</div></li>`).join("")}
       </ul>
       <div class="hidden overflow-x-auto sm:block"><table class="w-full min-w-[440px] border-collapse text-sm [&_td]:border-b [&_td]:border-rule [&_td]:px-2 [&_td]:py-2.5 [&_td]:text-left [&_th]:border-b [&_th]:border-rule [&_th]:px-2 [&_th]:py-2.5 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:text-soft">
       <thead><tr><th>Date</th><th>Trip</th><th>Driver</th><th>Payment</th><th>Rating</th></tr></thead><tbody>
-      ${log.map(r=>`<tr><td class="whitespace-nowrap tabular-nums">${fmt(r.when)}</td><td>${esc(r.from)} to ${esc(r.to)}</td><td>${esc(name(r))}</td><td>${esc(r.paidWith)} ${paystat(r)}</td><td class="whitespace-nowrap tabular-nums">${"★".repeat(r.rating)}</td></tr>`).join("")}
+      ${log.map(r=>`<tr><td class="whitespace-nowrap tabular-nums">${fmt(r.when)}</td><td>${esc(r.from)} to ${esc(r.to)}${r.review?`<span class="block text-soft [overflow-wrap:anywhere]">"${esc(r.review)}"</span>`:""}</td><td>${esc(name(r))}</td><td>${esc(r.paidWith)} ${paystat(r)}</td><td class="whitespace-nowrap">${stars(r.rating)}</td></tr>`).join("")}
       </tbody></table></div></div>`:""}
     <div class="flex flex-wrap gap-2.5"><button class="${UI.quiet}" id="reset">Reset my sample rides</button><button class="${UI.quiet}" id="out">Sign out</button></div>
   </div>`;
