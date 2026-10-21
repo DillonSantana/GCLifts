@@ -10,22 +10,24 @@ Milledgeville has limited public transit, and no rideshare apps are available. S
 
 ## Who it helps
 
-- **Riders:** Automatically connects riders with drivers, and drivers are verified students. 
-- **Drivers:** automatically connects with riders, and it's verified your pay. You can chat with the people you match with.
+- **Riders:** matched with a driver automatically, and every driver is a verified student.
+- **Drivers:** matched with riders automatically, and they confirm in the app when each rider's payment arrives. Riders and drivers can message each other.
 
 ## What the MVP does
 
 ### 1. Connect to your school
 - The student picks their school first. For the demo, the only option is **Georgia College & State University**.
-- The app sends a verification email to verify the email is a real email (if possible within timeframe)
-- Then they enter their school email. Only `@gcsu.edu` and `@bobcats.gcsu.edu` addresses are accepted.
+- Then they enter their name and school email. Only `@gcsu.edu` and `@bobcats.gcsu.edu` addresses are accepted.
+- The app emails a 6-digit code, and they enter it to prove the address is theirs. (The demo shows the code on screen instead of sending an email.)
 - Every user is a verified student, and students are only matched with people from their own school.
 
 ### 2. Request a ride
-- The rider types a pickup and drop-off as free text. 
+- The rider types a pickup and drop-off as free text. Known campus and town stops show on the map with the distance and drive time.
+- They pick the trip's purpose: Groceries, Pharmacy, Clinic, Job interview, Class or Other. Groceries, Pharmacy, Clinic and Job interview are **essential trips**.
 - They pick how they can pay: **Cash App, Venmo or PayPal**.
+- They see how many drivers are available to drive right now.
 - Optionally, they can request a driver they've ridden with before.
-- **Find my driver** matches them with a driver automatically. Who is available to drive 
+- **Find my driver** matches them with a driver automatically.
 
 ### 3. Automatic matching
 Each online driver with an open seat gets a score. The highest score wins:
@@ -37,11 +39,13 @@ Each online driver with an open seat gets a score. The highest score wins:
 | Driver accepts one of the rider's payment methods | Boost; a driver with no matching method is ranked lower |
 | Driver is close to the pickup | Small boost, decreasing with distance |
 
+A driver's last open seat is held for essential trips, so other trips only go to drivers with at least two open seats.
+
 The match screen explains why that driver was picked, for example "1 past ride together, 5.0 stars. Takes Venmo."
 
 ### 4. Matched ride: the hang tag
-- the rider gets an Uber-style match with the location of the driver on their way there
-- puts the rider and driver in a direct message chat 
+- Like Uber, the rider follows the driver on the map as they drive to the pickup. A status bar steps through Matched, On the way, Arriving and Here, with the miles and minutes left.
+- The rider and driver get a private chat. (In the demo, the driver's replies are automatic.)
 - A yellow parking-permit-style tag shows a **ride code** (for example, `GC-2529`). The driver says the code before the rider gets in, so the rider knows it's the right car.
 - It shows the driver's name, car, plus an ETA.
 - It shows the driver's payment preferences, highlighting the ones that match the rider's.
@@ -50,18 +54,22 @@ The match screen explains why that driver was picked, for example "1 past ride t
 ### 5. Payment (outside the app)
 - Money moves directly between the rider and driver in Cash App, Venmo or PayPal.
 - GClifts **only records** which method was used. This keeps the app out of payment processing and liability.
+- The driver confirms in GClifts when the money arrives, so riders who don't pay are easy to spot.
 
 ### 6. Finish the ride
 - The rider records how they paid and rates the ride from 1 to 5 stars.
-- The ride is saved to their ride log.
+- The ride is saved to their ride log as "Waiting for driver" until the driver confirms the payment. (Sample drivers confirm after a few seconds.)
 
 ### 7. Drive
 - A driver sets whether they're available now, their car, open seats, general area, and which payment methods they prefer.
+- **Your riders** lists each rider they've driven, with the trip and how the rider paid. The driver taps **Confirm payment received** when the money shows up, and can message each rider.
+- A new driver starts with two sample riders, one of whom is waiting for a payment confirmation, so the demo shows this right away.
 
 ### 8. Ride log
 - A summary line, for example: "3 rides with 2 drivers. You pay with Venmo most often."
 - **Drivers you've ridden with:** number of rides, what you paid with, and what they prefer.
-- **Every ride:** date, trip, purpose, driver, payment method and rating.
+- **Every ride:** date, trip, purpose, driver, payment method, whether the driver confirmed it, and rating.
+- **Reset my sample rides** restores the sample rides and keeps the rider's own rides.
 - Past drivers are matched first on future rides.
 
 ## Data model
@@ -70,7 +78,7 @@ The match screen explains why that driver was picked, for example "1 past ride t
 |---|---|
 | **Users** | email (key), name, school |
 | **Drivers** | id, email, car, seats, zone, pay[], online |
-| **Rides** | id, riderEmail, driverId, from, to, purpose, when, paidWith, rating, code |
+| **Rides** | id, riderEmail, riderName, driverId, from, to, purpose, when, paidWith, confirmed, rating, code, chat[] |
 
 ## Demo stops (Milledgeville)
 
@@ -79,7 +87,7 @@ Russell Library, Maxwell Student Union, Student Health Center, The Village apts,
 ## Current build
 
 - One page, `index.html`, with plain JavaScript and no backend, styled with **[Tailwind CSS](https://tailwindcss.com) v4**.
-- Data is saved in the browser. Each rider gets their own copy of the sample rides the first time they sign in; **Reset my sample rides** in the Ride log tab restores them.
+- Data is saved in the browser. Each rider gets their own copy of the sample rides the first time they sign in; **Reset my sample rides** in the Ride log tab restores them. Each new driver gets two sample riders.
 - Tested on phone (375px), tablet (820px) and laptop (1366px) widths, in light and dark mode.
 
 ### Try it
@@ -147,12 +155,13 @@ Region: the project is in `us-east-2`; the Agent Toolkit runs in `us-east-1`.
 
 ## Demo script (2 minutes)
 
-1. **The problem:** "Maria is a GC freshman with no car and a prescription to pick up at CVS."
-2. **Connect to school:** choose Georgia College & State University and sign in with a `@bobcats.gcsu.edu` email. Show that a non-GC email is rejected.
+1. **The problem:** "Maria is a GC freshman with no car and a prescription to pick up at CVS. The GroupMe ride chat is chaos."
+2. **Connect to school:** choose Georgia College & State University and sign in with a `@bobcats.gcsu.edu` email. Show that a non-GC email is rejected, then enter the 6-digit code.
 3. **Request:** Maxwell Student Union to CVS Pharmacy, purpose Pharmacy (an essential trip), paying with Venmo.
-4. **Match:** the hang tag appears. Point out the ride code, the reason this driver was picked, and the matching payment method.
-5. **Finish:** record Venmo and 5 stars, then open the ride log.
-6. **Close:** "Students helping students get to the trips that matter. Next, we put it on Cognito, DynamoDB and Location Service."
+4. **Match:** the hang tag appears. Point out the ride code, the reason this driver was picked, the matching payment method and the driver moving on the map. Send the driver a message.
+5. **Finish:** record Venmo and 5 stars, then open the ride log and watch the payment change to Confirmed.
+6. **Drive:** open the Drive tab, save a driver profile, confirm Maya's payment and message her.
+7. **Close:** "Students helping students get to the trips that matter. Next, we put it on Cognito, DynamoDB and Location Service."
 
 ## Judging fit
 

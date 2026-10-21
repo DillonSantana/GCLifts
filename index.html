@@ -68,13 +68,23 @@ function fresh(){return{user:null,tab:"ride",drivers:structuredClone(seedDrivers
   draft:{from:"Maxwell Student Union",to:"Walmart Supercenter",purpose:"Groceries",pay:["Venmo"],prefer:null},active:null}}
 function load(){try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){} if(!S||!S.draft)S=fresh(); S.seeded=S.seeded||{}}
 // Each rider gets their own copy of the sample rides the first time they sign in on this browser.
-function seedRidesFor(email){S.log=S.log.filter(r=>r.riderEmail!==email);
+// Resetting replaces only the sample rides; rides the rider took themselves stay.
+function seedRidesFor(email){S.log=S.log.filter(r=>!(r.riderEmail===email&&r.sample));
   S.log.push(...seedLog.map(r=>({...r,id:r.id+"-"+email,riderEmail:email,sample:true})));S.seeded[email]=true}
+// A new driver gets two sample riders so the Drive tab shows payment confirmation and messages right away.
+const seedRiders=[
+  {riderName:"Maya Garcia",riderEmail:"mgarcia@bobcats.gcsu.edu",from:"Maxwell Student Union",to:"CVS Pharmacy",purpose:"Pharmacy",when:"2026-10-20T15:10",rating:5,confirmed:false,
+    chat:[{who:"rider",text:"Thanks for the ride! I just sent the money.",t:Date.parse("2026-10-20T15:32")}]},
+  {riderName:"Tyler Brooks",riderEmail:"tbrooks@bobcats.gcsu.edu",from:"The Village apts",to:"Kroger",purpose:"Groceries",when:"2026-10-18T11:30",rating:5,confirmed:true,
+    chat:[{who:"rider",text:"I'm by the front gate.",t:Date.parse("2026-10-18T11:24")},{who:"driver",text:"Pulling up now.",t:Date.parse("2026-10-18T11:25")}]}];
+function seedRidersFor(d){if(S.seeded["driver:"+d.id])return;
+  S.log.push(...seedRiders.map((r,i)=>({...structuredClone(r),id:"s"+i+"-"+d.id,driverId:d.id,paidWith:d.pay[0],sample:true})));S.seeded["driver:"+d.id]=true}
 const myLog=()=>S.user?S.log.filter(r=>r.riderEmail===S.user.email).sort((a,b)=>new Date(b.when)-new Date(a.when)):[];
 // One seat is in use while the signed-in rider has an active ride with this driver.
 const openSeats=d=>d.seats-(S.active&&S.active.driverId===d.id?1:0);
 function confirmPending(){if(!S)return;let changed=false;
-  S.log.forEach(r=>{if(!r.confirmed&&r.endedAt&&Date.now()-r.endedAt>3000){r.confirmed=true;changed=true}});
+  // Sample drivers confirm on their own after a few seconds; a driver who signed up on this browser confirms in their Drive tab.
+  S.log.forEach(r=>{if(!r.confirmed&&r.endedAt&&!String(r.driverId).startsWith("u-")&&Date.now()-r.endedAt>3000){r.confirmed=true;changed=true}});
   if(changed){save();if(S.user&&S.tab==="log"&&!S.active)render()}}
 setInterval(confirmPending,1000);
 const isEssential=p=>!!(PURPOSE.find(x=>x[0]===p)||[])[1];
@@ -210,6 +220,8 @@ function match(){
 const AVC=["#0f766e","#7c3aed","#c2410c","#1d4ed8","#be185d","#4d7c0f"];
 const avColor=n=>{let h=0;for(const c of n)h=(h*17+c.charCodeAt(0))>>>0;return AVC[h%AVC.length]};
 const VER=`<span class="inline-flex items-center gap-[3px] rounded-full bg-campus px-[7px] py-0.5 font-body text-[.72rem] font-bold text-route" title="School email confirmed with a code"><svg class="size-[11px]" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 6.2l2.3 2.3 4.7-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Verified GC student</span>`;
+const fmtDay=w=>new Date(w).toLocaleDateString("en-US",{month:"short",day:"numeric"});
+const payStatus=r=>r.confirmed?`<span class="text-[.82rem] font-bold text-route">Confirmed</span>`:`<span class="text-[.82rem] font-bold text-soft">Waiting for driver</span>`;
 const payTags=(list,yes)=>list.map(p=>`<span class="${yes.includes(p)?UI.payYes:UI.pay}">${esc(p)}</span>`).join("");
 function profile(d,{tag="div",attrs="",paid=[],footer=""}={}){
   const rs=myLog().filter(r=>r.driverId===d.id),avg=rs.length?rs.reduce((t,r)=>t+r.rating,0)/rs.length:0;
@@ -398,13 +410,30 @@ function activeView(){
       a.chat.push({who:"them",text:r,t:Date.now()});save();const b=$("#chat");if(!b)return;$("#typing").textContent="";b.innerHTML=bubbles();b.scrollTop=b.scrollHeight},1400)};
   $("#copy").onclick=async()=>{const i=$("#sharetxt");try{await navigator.clipboard.writeText(i.value);toast("Trip details copied")}catch(e){i.select();toast("Selected. Press copy on your keyboard.")}};
   $("#done").onclick=()=>{S.log.unshift({id:"r"+Date.now(),riderEmail:S.user.email,driverId:d.id,from:a.from,to:a.to,purpose:a.purpose,when:a.when,
-      paidWith:$("#paid").value,rating:+$("#rate").value,confirmed:false,endedAt:Date.now()});
+      paidWith:$("#paid").value,rating:+$("#rate").value,confirmed:false,endedAt:Date.now(),
+      riderName:S.user.name,chat:a.chat.map(m=>({...m,who:m.who==="me"?"rider":"driver"}))});
     S.active=null;S.tab="log";save();render();toast(`Ride saved. Waiting for ${n} to confirm your payment.`)};
   $("#cancel").onclick=()=>{S.active=null;save();render();toast("Ride canceled")};
 }
 
+const RIDER_REPLIES=[[/paid|pay|sent|money|venmo|paypal|cash ?app/i,"I sent it right after the ride. Let me know if it doesn't show up."],[/thank|thx|ty\b/i,"Thank you for the ride!"],[/.*/,"Sounds good!"]];
+function driverBubbles(r){return r.chat.map(m=>`<div class="${m.who==="driver"?MSG.me:MSG.them}">${esc(m.text)}<small class="mt-0.5 block text-[.72rem] opacity-75">${m.who==="driver"?"You":esc(first(r.riderName))}, ${new Date(m.t).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}</small></div>`).join("")}
+function riderCard(r){const n=esc(first(r.riderName));
+  return `<li class="flex flex-col gap-3 rounded-2xl border border-rule bg-panel p-4" data-r="${esc(r.id)}">
+    <div class="flex items-center gap-3"><span class="${UI.face}">${esc(initials(r.riderName))}</span>
+      <div class="min-w-0 flex-1"><h3 class="${UI.h3}">${esc(r.riderName)}</h3><div class="${UI.sub}">${esc(r.from)} to ${esc(r.to)} · ${fmtDay(r.when)}</div></div></div>
+    <div class="flex flex-wrap items-center justify-between gap-2"><span class="text-sm">Paid with <b>${esc(r.paidWith)}</b> · ${r.confirmed?`<span class="text-[.82rem] font-bold text-route">You confirmed it</span>`:`<span class="text-[.82rem] font-bold text-alert">Needs your confirmation</span>`}</span>
+      ${r.confirmed?"":`<button type="button" class="${UI.quiet}" data-act="confirm">Confirm payment received</button>`}</div>
+    <details class="border-t border-rule pt-3"><summary class="min-h-11 cursor-pointer content-center text-sm font-bold text-route">Messages with ${n} (${r.chat.length})</summary>
+      <div class="mt-2 flex flex-col gap-2">
+        <div class="flex max-h-[220px] flex-col gap-2 overflow-y-auto px-0.5 py-1" data-chat>${driverBubbles(r)}</div>
+        <form class="flex items-stretch gap-2" data-act="send"><input id="dm-${esc(r.id)}" class="${UI.input} min-w-0" placeholder="Write to ${n}" aria-label="Message ${n}" autocomplete="off"><button class="${UI.quiet}">Send</button></form>
+      </div></details>
+  </li>`}
+
 function driveView(){
   const me=S.drivers.find(d=>d.email===S.user.email);
+  const riders=me?S.log.filter(r=>r.driverId===me.id).map(r=>({...r,chat:r.chat||[],riderName:r.riderName||"A rider"})).sort((a,b)=>new Date(b.when)-new Date(a.when)):[];
   const essentials=PURPOSE.filter(p=>p[1]).map(p=>p[0]).join(", ").toLowerCase();
   $("#view").innerHTML=`<div class="${UI.stack}">
     <h2 class="${UI.h2}">Drive for classmates</h2>
@@ -421,7 +450,23 @@ function driveView(){
         <div class="${UI.chips}" id="dpay">${PAY.map(p=>`<button type="button" class="${UI.chip}" aria-pressed="${(me?.pay||["Venmo"]).includes(p)}">${p}</button>`).join("")}</div></div>
       <p class="${UI.err}" id="err"></p>
       <button class="${UI.go}" id="saveD">Save driver profile</button>
-    </div></div>`;
+    </div>
+    <div class="${UI.tight}"><h3 class="${UI.h3}">Your riders</h3>
+      ${me?`<p class="${UI.hint}">When a payment shows up in your ${esc(me.pay.join(" or "))} app, confirm it here. The rider sees it in their ride log.</p>
+      <ul class="flex flex-col gap-3" id="riders">${riders.map(riderCard).join("")||`<li class="${UI.hint}">No rides yet. Riders you're matched with show up here.</li>`}</ul>`
+      :`<p class="${UI.hint}">Save your driver profile to see the riders you're matched with, confirm their payments and message them.</p>`}</div>
+  </div>`;
+  const list=$("#riders");
+  if(list){
+    const rec=li=>S.log.find(r=>r.id===li.dataset.r);
+    list.onclick=e=>{const b=e.target.closest("[data-act=confirm]");if(!b)return;const r=rec(b.closest("li"));
+      r.confirmed=true;r.confirmedAt=Date.now();save();driveView();toast(`Payment from ${first(r.riderName||"your rider")} confirmed`)};
+    list.onsubmit=e=>{e.preventDefault();const f=e.target,li=f.closest("li"),r=rec(li),inp=f.querySelector("input"),t=inp.value.trim();if(!t)return;
+      r.chat=r.chat||[];r.chat.push({who:"driver",text:t,t:Date.now()});inp.value="";save();
+      const box=li.querySelector("[data-chat]"),sum=li.querySelector("summary"),show=()=>{const v={...r,riderName:r.riderName||"A rider"};box.innerHTML=driverBubbles(v);box.scrollTop=box.scrollHeight;sum.textContent=`Messages with ${first(v.riderName)} (${r.chat.length})`};show();
+      // Sample riders answer automatically; a rider on this browser reads it in their own account.
+      if(r.sample)setTimeout(()=>{r.chat.push({who:"rider",text:RIDER_REPLIES.find(([re])=>re.test(t))[1],t:Date.now()});save();if(li.isConnected)show()},1400)};
+  }
   $("#dpay").onclick=e=>{const c=e.target.closest("button");if(c)c.setAttribute("aria-pressed",c.getAttribute("aria-pressed")!=="true")};
   $("#saveD").onclick=()=>{
     const pay=[...document.querySelectorAll("#dpay button[aria-pressed=true]")].map(c=>c.textContent);
@@ -431,7 +476,7 @@ function driveView(){
     const data={name:S.user.name,email:S.user.email,car,
       seats:Math.max(1,+$("#seats").value||1),pay,online:$("#online").checked,zone:$("#zone").value};
     if(me)Object.assign(me,data);else S.drivers.push({id:"u-"+S.user.email,...data});
-    save();drawMap();toast(data.online?"Driver profile saved. You're available.":"Driver profile saved");
+    seedRidersFor(S.drivers.find(d=>d.email===S.user.email));save();driveView();drawMap();toast(data.online?"Driver profile saved. You're available.":"Driver profile saved");
   };
 }
 
@@ -441,9 +486,8 @@ function logView(){
   const people=Object.entries(by).sort((a,b)=>b[1].length-a[1].length);
   const payCount={};log.forEach(r=>payCount[r.paidWith]=(payCount[r.paidWith]||0)+1);
   const topPay=Object.entries(payCount).sort((a,b)=>b[1]-a[1])[0];
-  const fmt=w=>new Date(w).toLocaleDateString("en-US",{month:"short",day:"numeric"});
+  const fmt=fmtDay,paystat=payStatus;
   const name=r=>{const d=drv(r.driverId);return d?first(d.name):""};
-  const paystat=r=>r.confirmed?`<span class="text-[.82rem] font-bold text-route">Confirmed</span>`:`<span class="text-[.82rem] font-bold text-soft">Waiting for driver</span>`;
   $("#view").innerHTML=`<div class="${UI.stack}">
     <h2 class="${UI.h2}">Ride log</h2>
     ${log.length?`<p class="max-w-[36ch] font-display text-[1.15rem] leading-[1.35] font-bold [font-stretch:105%]">${log.length} ride${log.length>1?"s":""} with ${people.length} driver${people.length>1?"s":""}. You pay with ${esc(topPay[0])} most often.</p>`:""}
