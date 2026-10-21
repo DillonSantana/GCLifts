@@ -30,7 +30,14 @@
 
 <script>
 const KEY="gclifts-v8";
-const PAY=["Cash App","Venmo","PayPal"];
+const PAY=["Cash App","Venmo","PayPal","Cash"];
+// Cash changes hands in person, so copy that assumes an app transfer needs its own wording.
+const CASH="Cash";
+const payInvite=p=>p===CASH?"Cash works for me. You can pay me at drop-off.":`${p} works for me. Send it after the ride.`;
+const paidNote=p=>p===CASH?"I handed you cash at drop-off. Let me know if it wasn't right.":"I sent it right after the ride. Let me know if it doesn't show up.";
+function confirmHint(pay){const apps=pay.filter(p=>p!==CASH),cash=pay.includes(CASH);
+  const when=apps.length?`When a payment shows up in your ${apps.join(" or ")} app${cash?" or a rider hands you cash":""}`:"When a rider hands you cash";
+  return `${when}, confirm it here. The rider sees it in their ride log.`}
 const SPOTS={
   "Russell Library":[96,74],"Maxwell Student Union":[150,108],"Student Health Center":[206,62],
   "The Village apts":[42,168],"Walmart Supercenter":[104,222],"Kroger":[184,188],
@@ -304,7 +311,7 @@ function rideView(){
 }
 
 const REPLIES=[[/where|which|spot|find/i,"I'll pull up right out front. Look for the {car}."],[/late|minute|wait|hold/i,"No problem, I'll wait a couple of minutes."],
-  [/pay|venmo|paypal|cash ?app/i,"{pay} works for me. Send it after the ride."],[/thank|thx|ty\b/i,"Anytime!"],[/.*/,"Sounds good, see you soon."]];
+  [/pay|venmo|paypal|cash/i,"{pay}"],[/thank|thx|ty\b/i,"Anytime!"],[/.*/,"Sounds good, see you soon."]];
 // Keyed by driver id, not stored on the driver, so browsers with a saved driver list get it too.
 const GREETING={d2:"Hi, im in a Blue Toyota RAV4. Im 3 minutes out. It will be $3. Venmo: @Alisha"};
 const MSG={
@@ -374,7 +381,7 @@ function activeView(){
   $("#chatf").onsubmit=e=>{e.preventDefault();const t=$("#chatin").value.trim();if(!t)return;
     a.chat.push({who:"me",text:t,t:Date.now()});$("#chatin").value="";save();box.innerHTML=bubbles();box.scrollTop=box.scrollHeight;
     $("#typing").textContent=`${n} is typing...`;
-    setTimeout(()=>{if(S.active!==a)return;const r=REPLIES.find(([re])=>re.test(t))[1].replace("{car}",d.car).replace("{pay}",ok[0]||d.pay[0]);
+    setTimeout(()=>{if(S.active!==a)return;const r=REPLIES.find(([re])=>re.test(t))[1].replace("{car}",d.car).replace("{pay}",payInvite(ok[0]||d.pay[0]));
       a.chat.push({who:"them",text:r,t:Date.now()});save();const b=$("#chat");if(!b)return;$("#typing").textContent="";b.innerHTML=bubbles();b.scrollTop=b.scrollHeight},1400)};
   $("#copy").onclick=async()=>{const i=$("#sharetxt");try{await navigator.clipboard.writeText(i.value);toast("Trip details copied")}catch(e){i.select();toast("Selected. Press copy on your keyboard.")}};
   wireStars();
@@ -387,7 +394,7 @@ function activeView(){
   $("#cancel").onclick=()=>{S.active=null;save();render();toast("Ride canceled")};
 }
 
-const RIDER_REPLIES=[[/paid|pay|sent|money|venmo|paypal|cash ?app/i,"I sent it right after the ride. Let me know if it doesn't show up."],[/thank|thx|ty\b/i,"Thank you for the ride!"],[/.*/,"Sounds good!"]];
+const RIDER_REPLIES=[[/paid|pay|sent|money|venmo|paypal|cash/i,"{paid}"],[/thank|thx|ty\b/i,"Thank you for the ride!"],[/.*/,"Sounds good!"]];
 function driverBubbles(r){return r.chat.map(m=>`<div class="${m.who==="driver"?MSG.me:MSG.them}">${esc(m.text)}<small class="mt-0.5 block text-[.72rem] opacity-75">${m.who==="driver"?"You":esc(first(r.riderName))}, ${new Date(m.t).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}</small></div>`).join("")}
 const REPORTS=["Didn't pay","Too loud","Threw up","Other"];
 // Shown in place of the report form once the driver has sent one for this ride.
@@ -438,7 +445,7 @@ function driveView(){
       <button class="${UI.go}" id="saveD">Save driver profile</button>
     </div>
     <div class="${UI.tight}"><h3 class="${UI.h3}">Your riders</h3>
-      ${me?`<p class="${UI.hint}">When a payment shows up in your ${esc(me.pay.join(" or "))} app, confirm it here. The rider sees it in their ride log.</p>
+      ${me?`<p class="${UI.hint}">${esc(confirmHint(me.pay))}</p>
       <ul class="flex flex-col gap-3" id="riders">${riders.map(riderCard).join("")||`<li class="${UI.hint}">No rides yet. Riders you're matched with show up here.</li>`}</ul>`
       :`<p class="${UI.hint}">Save your driver profile to see the riders you're matched with, confirm their payments and message them.</p>`}</div>
   </div>`;
@@ -455,7 +462,7 @@ function driveView(){
       r.chat=r.chat||[];r.chat.push({who:"driver",text:t,t:Date.now()});inp.value="";save();
       const box=li.querySelector("[data-chat]"),sum=li.querySelector("summary"),show=()=>{const v={...r,riderName:r.riderName||"A rider"};box.innerHTML=driverBubbles(v);box.scrollTop=box.scrollHeight;sum.textContent=`Messages with ${first(v.riderName)} (${r.chat.length})`};show();
       // Sample riders answer automatically; a rider on this browser reads it in their own account.
-      if(r.sample)setTimeout(()=>{r.chat.push({who:"rider",text:RIDER_REPLIES.find(([re])=>re.test(t))[1],t:Date.now()});save();if(li.isConnected)show()},1400)};
+      if(r.sample)setTimeout(()=>{r.chat.push({who:"rider",text:RIDER_REPLIES.find(([re])=>re.test(t))[1].replace("{paid}",paidNote(r.paidWith)),t:Date.now()});save();if(li.isConnected)show()},1400)};
   }
   function sendReport(f,r){
     const reason=f.querySelector("input:checked")?.value,note=f.querySelector("textarea").value.trim(),err=f.querySelector("[data-err]");
