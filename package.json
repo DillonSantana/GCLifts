@@ -4,10 +4,14 @@
   "description": "GClifts MVP: students-only rides for Georgia College & State University",
   "scripts": {
     "build": "tailwindcss -i styles/input.css -o styles/app.css --minify",
-    "dev": "tailwindcss -i styles/input.css -o styles/app.css --watch"
+    "dev": "tailwindcss -i styles/input.css -o styles/app.css --watch",
+    "start": "node server/local.mjs"
   },
   "devDependencies": {
     "@tailwindcss/cli": "4.1.11",
     "tailwindcss": "4.1.11"
+  },
+  "dependencies": {
+    "ws": "8.18.0"
   }
 }

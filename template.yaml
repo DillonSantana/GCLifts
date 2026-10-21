@@ -1,0 +1,108 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  GClifts backend: a WebSocket API that connects riders with drivers and carries their chat.
+  Deploy with `sam deploy --guided` (see README, "Deploy the backend to AWS").
+
+Parameters:
+  DemoCodes:
+    Type: String
+    AllowedValues: ["true", "false"]
+    Default: "true"
+    Description: >
+      "true" shows the 6-digit sign-in code on screen, so anyone can sign in with any school email.
+      Set to "false" for real use, together with SesFrom.
+  SesFrom:
+    Type: String
+    Default: ""
+    Description: Verified Amazon SES sender address for sign-in codes (for example no-reply@yourdomain). Leave empty to send no email.
+
+Conditions:
+  HasSes: !Not [!Equals [!Ref SesFrom, ""]]
+
+Resources:
+  Table:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - {AttributeName: pk, AttributeType: S}
+        - {AttributeName: sk, AttributeType: S}
+      KeySchema:
+        - {AttributeName: pk, KeyType: HASH}
+        - {AttributeName: sk, KeyType: RANGE}
+      TimeToLiveSpecification: {AttributeName: ttl, Enabled: true}
+
+  Api:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: gclifts
+      ProtocolType: WEBSOCKET
+      RouteSelectionExpression: "$request.body.action"
+
+  Function:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: server/
+      Handler: lambda.handler
+      Runtime: nodejs20.x
+      Architectures: [arm64]
+      MemorySize: 256
+      Timeout: 10
+      Environment:
+        Variables:
+          TABLE: !Ref Table
+          DEMO_CODES: !Ref DemoCodes
+          SES_FROM: !Ref SesFrom
+      Policies:
+        - DynamoDBCrudPolicy: {TableName: !Ref Table}
+        - Statement:
+            - Effect: Allow
+              Action: execute-api:ManageConnections
+              Resource: !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${Api}/*
+        - !If
+          - HasSes
+          - Statement:
+              - Effect: Allow
+                Action: ses:SendEmail
+                Resource: "*"
+          - !Ref AWS::NoValue
+
+  Integration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref Api
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Function.Arn}/invocations
+
+  ConnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties: {ApiId: !Ref Api, RouteKey: $connect, Target: !Sub "integrations/${Integration}"}
+  DisconnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties: {ApiId: !Ref Api, RouteKey: $disconnect, Target: !Sub "integrations/${Integration}"}
+  DefaultRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties: {ApiId: !Ref Api, RouteKey: $default, Target: !Sub "integrations/${Integration}"}
+
+  Stage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref Api
+      StageName: prod
+      AutoDeploy: true
+      DefaultRouteSettings: {ThrottlingBurstLimit: 50, ThrottlingRateLimit: 20}
+    DependsOn: [ConnectRoute, DisconnectRoute, DefaultRoute]
+
+  InvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref Function
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${Api}/*
+
+Outputs:
+  WebSocketUrl:
+    Description: Put this in config.js as GCLIFTS_WS
+    Value: !Sub wss://${Api}.execute-api.${AWS::Region}.amazonaws.com/${Stage}
