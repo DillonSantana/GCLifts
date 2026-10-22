@@ -28,12 +28,15 @@ Developer tooling
 Kiro: the AI IDE we used to build, refactor and deploy the app.
 AWS CLI v2 with aws login: browser sign-in with no long-lived access keys. AWS STS confirms who's signed in.
 AWS Agent Toolkit and the AWS MCP server: give our AI coding assistant AWS skills and guidance while we build.
+Built, running locally (not deployed yet)
+
+Amazon Location Service: map tiles, real road routes with distance and drive time, and geocoding for places riders type in. The browser uses an API key that only allows read-only map, route and place calls from localhost and the CloudFront site.
+AWS AppSync Events: carries the driver's live location to the rider over a WebSocket, one channel per ride (`/rides/<random id>`).
 Next step (designed, not built yet)
 
 Amazon Cognito: school-email sign-in, with a Lambda pre-signup check that only accepts @gcsu.edu and @bobcats.gcsu.edu addresses.
 Amazon DynamoDB: Users, Drivers and Rides tables.
 AWS Lambda and Amazon API Gateway: run the driver-matching score (past rides, payment compatibility, distance) on the server.
-Amazon Location Service: turns typed pickup and drop-off places into map locations and calculates real distance and drive time.
 Amazon SNS: texts drivers when a ride is requested.
 
 ### 1. Connect to your school
@@ -43,7 +46,7 @@ Amazon SNS: texts drivers when a ride is requested.
 - Every user is a verified student, and students are only matched with people from their own school.
 
 ### 2. Request a ride
-- The rider types a pickup and drop-off as free text. For known campus and town stops, the app shows the distance and drive time.
+- The rider types a pickup and drop-off as free text. The app finds the place and shows the distance and drive time by road. (Without map setup, only known campus and town stops get a straight-line estimate.)
 - They pick how they can pay: **Cash App, Venmo or PayPal**.
 - They see how many drivers are available to drive right now.
 - Optionally, they can request a driver they've ridden with before.
@@ -62,7 +65,9 @@ Each online driver with an open seat gets a score. The highest score wins:
 The match screen explains why that driver was picked, for example "1 past ride together, 5.0 stars. Takes Venmo."
 
 ### 4. Matched ride
-- A status card follows the driver from matched to on the way, arriving and here. (Progress is simulated in the demo.)
+- A status card follows the driver from matched to on the way, arriving and here.
+- A map shows the pickup, the drop-off, the road route and the driver's car. Until the driver shares their location, the car follows a simulated estimate.
+- **Live location:** the ride screen has a driver link. Opening it shows a driver screen for that ride only, where the driver can **share their live location** (phone GPS) or **simulate the drive** along the real route (for demos away from Milledgeville). The rider's map and ETA follow the car. Sharing stops when the driver taps Stop or the rider finishes or cancels the ride, and locations are never stored.
 - The ride card shows the driver's name, car and ETA, plus a **ride code** (for example, `GC-2529`). The driver says the code before the rider gets in, so the rider knows it's the right car.
 - The rider can message the driver, see which of the driver's payment methods match theirs, and **share the trip** with a friend.
 
@@ -103,13 +108,47 @@ Russell Library, Maxwell Student Union, Student Health Center, The Village apts,
 
 ## Current build
 
-- One page, `index.html`, with plain JavaScript and no backend, styled with **[Tailwind CSS](https://tailwindcss.com) v4**.
+- One page, `index.html`, with plain JavaScript, styled with **[Tailwind CSS](https://tailwindcss.com) v4**. The map uses [MapLibre GL JS](https://maplibre.org) 4.7.1 from a CDN. The only backend is Location Service and AppSync Events, called straight from the browser.
 - Data is saved in the browser. Each rider gets their own copy of the sample rides the first time they sign in; **Reset my sample rides** in the Ride log tab restores them. Each new driver gets two sample riders.
 - Tested on phone (375px), tablet (820px) and laptop (1366px) widths, in light and dark mode.
 
 ### Try it
 
-Open `index.html` in a browser. The compiled stylesheet, `styles/app.css`, is committed, so you don't need to install anything to run the app.
+The compiled stylesheet, `styles/app.css`, is committed, so you don't need to install anything to run the app.
+
+1. Create the map and live-tracking resources and write `config.js` (once, after `aws login`). The script reuses anything that already exists:
+   ```bash
+   bash setup-live-map.sh
+   ```
+2. Serve the folder. The map key only works from `http://127.0.0.1:8000` or `:8001` (or `localhost`), so opening the file directly shows no map:
+   ```bash
+   python3 -m http.server 8000 --bind 127.0.0.1
+   ```
+3. Open http://127.0.0.1:8000. To play the driver, copy the driver link from a matched ride and open it in another tab.
+
+### Deploy
+
+The site is served from the private S3 bucket `gclifts-site-645674817154` through CloudFront distribution `EFJ3FGX7Q0OQK` (https://d3exvjki5n2jnm.cloudfront.net). The Location key already allows that address. `config.js` isn't in git, so upload it from your machine with the other files:
+
+```bash
+npm run build
+```
+```bash
+aws s3 cp index.html s3://gclifts-site-645674817154/index.html --content-type "text/html; charset=utf-8" --cache-control no-cache
+```
+```bash
+aws s3 cp styles/app.css s3://gclifts-site-645674817154/styles/app.css --content-type "text/css; charset=utf-8" --cache-control no-cache
+```
+```bash
+aws s3 cp config.js s3://gclifts-site-645674817154/config.js --content-type "application/javascript; charset=utf-8" --cache-control no-cache
+```
+```bash
+aws cloudfront create-invalidation --distribution-id EFJ3FGX7Q0OQK --paths "/" "/index.html" "/styles/app.css" "/config.js"
+```
+
+Check it worked: `curl -s https://d3exvjki5n2jnm.cloudfront.net/config.js | head -2` should print the "Written by setup-live-map.sh" comment, not HTML. (CloudFront answers missing files with `index.html`, so a missing `config.js` doesn't show up as a 404.) You only need to upload `config.js` again after re-running `setup-live-map.sh` creates new keys. The AppSync key expires after 365 days.
+
+Without `config.js` the app still runs, with straight-line estimates and no map or live tracking. Sharing real GPS from a phone needs the site on HTTPS, because browsers only give location to secure pages.
 
 ### How it adapts to each device
 
@@ -152,6 +191,8 @@ Write class names out in full (for example `"bg-route"`, not `"bg-" + color`); T
 | `images/logo.jpg` | The GClifts logo in the app header (resized from the banner above) |
 | `images/icon.png` | The bobcat emblem, used as the browser tab and home-screen icon |
 | `setup-aws.sh` | AWS CLI and Agent Toolkit setup |
+| `setup-live-map.sh` | Creates the Location Service key and AppSync Events API in us-east-2, then writes `config.js` |
+| `config.js` | Browser keys and endpoints for the map and live tracking (generated, not committed) |
 
 ## AWS architecture (next step)
 
@@ -160,7 +201,8 @@ Write class names out in full (for example `"bg-route"`, not `"bg-" + color`); T
 | School-email sign-in | **Cognito**, with a pre-signup Lambda that rejects any email not ending in `@gcsu.edu` or `@bobcats.gcsu.edu` |
 | Data | **DynamoDB**: Users, Drivers and Rides tables |
 | Matching | **Lambda** running the scoring logic above, behind **API Gateway** |
-| Maps and addresses | **Amazon Location Service** for geocoding the free-text stops and calculating distance and ETA |
+| Maps and addresses | **Amazon Location Service** for map tiles, geocoding and road routes (built) |
+| Live driver location | **AppSync Events**, one channel per ride (built; switch from API key to Cognito auth once sign-in exists) |
 | Ride alerts | **SNS** text messages to drivers when a ride is requested |
 | Hosting | **S3** and **CloudFront**, or **Amplify Hosting** |
 
@@ -168,7 +210,7 @@ Region: the project is in `us-east-2`; the Agent Toolkit runs in `us-east-1`.
 
 ## Out of scope for the MVP
 
-- Maps and live GPS tracking (ride progress is simulated)
+- Matching a real driver's account to a ride (the driver joins by link, and matched drivers are still samples)
 - In-app payments
 - Driver background checks and insurance verification
 - Schools other than GCSU
