@@ -10,6 +10,10 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Public+Sans:wght@400;600;700&display=swap">
 <!-- Built by Tailwind from styles/input.css. After changing classes, run: npm run build -->
 <link rel="stylesheet" href="styles/app.css">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<!-- Written by setup-live-map.sh. Without it the app still works, with no map or live tracking. -->
+<script src="config.js"></script>
 </head>
 <body class="min-h-dvh text-base">
 
@@ -38,10 +42,14 @@ const paidNote=p=>p===CASH?"I handed you cash at drop-off. Let me know if it was
 function confirmHint(pay){const apps=pay.filter(p=>p!==CASH),cash=pay.includes(CASH);
   const when=apps.length?`When a payment shows up in your ${apps.join(" or ")} app${cash?" or a rider hands you cash":""}`:"When a rider hands you cash";
   return `${when}, confirm it here. The rider sees it in their ride log.`}
+// [longitude, latitude]. Student Union, Health Center and Bus Station are approximate.
 const SPOTS={
-  "Russell Library":[96,74],"Maxwell Student Union":[150,108],"Student Health Center":[206,62],
-  "The Village apts":[42,168],"Walmart Supercenter":[104,222],"Kroger":[184,188],
-  "CVS Pharmacy":[262,196],"Downtown Milledgeville":[296,128],"Bus Station":[310,44],"Airport shuttle stop":[332,226]};
+  "Russell Library":[-83.22947,33.08092],"Maxwell Student Union":[-83.2306,33.0794],"Student Health Center":[-83.2325,33.0820],
+  "The Village apts":[-83.25993,33.07739],"Walmart Supercenter":[-83.2647,33.11724],"Kroger":[-83.27394,33.15319],
+  "CVS Pharmacy":[-83.22619,33.07624],"Downtown Milledgeville":[-83.2266,33.0807],"Bus Station":[-83.2224,33.0839],"Airport shuttle stop":[-83.23814,33.15488]};
+const CAMPUS=[-83.2306,33.0801];
+// A driver's link to one ride (index.html#drive=<id>) opens the driver screen instead of the app.
+const DRIVE_ID=(location.hash.match(/^#drive=([\w-]{8,64})$/)||[])[1]||null;
 const SCHOOLS=[{name:"Georgia College & State University",short:"GC",city:"Milledgeville, GA",domains:["gcsu.edu","bobcats.gcsu.edu"]}];
 const isStop=n=>Object.prototype.hasOwnProperty.call(SPOTS,n);
 const pos=n=>SPOTS[n];
@@ -76,7 +84,8 @@ function seedRidersFor(d){if(S.seeded["driver:"+d.id])return;
 const myLog=()=>S.user?S.log.filter(r=>r.riderEmail===S.user.email).sort((a,b)=>new Date(b.when)-new Date(a.when)):[];
 // One seat is in use while the signed-in rider has an active ride with this driver.
 const openSeats=d=>d.seats-(S.active&&S.active.driverId===d.id?1:0);
-function confirmPending(){if(!S)return;let changed=false;
+// The driver screen often shares a browser with the rider's tab, so it never writes saved state.
+function confirmPending(){if(!S||DRIVE_ID)return;let changed=false;
   // Sample drivers confirm on their own after a few seconds; a driver who signed up on this browser confirms in their Drive tab.
   S.log.forEach(r=>{if(!r.confirmed&&r.endedAt&&!String(r.driverId).startsWith("u-")&&Date.now()-r.endedAt>3000){r.confirmed=true;changed=true}});
   if(changed){save();if(S.user&&S.tab==="log"&&!S.active)render()}}
@@ -89,8 +98,11 @@ const esc=t=>String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",
 const initials=n=>n.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();
 const first=n=>n.split(" ")[0];
 const drv=id=>S.drivers.find(d=>d.id===id);
-// Straight-line distance between demo stops; null when either place isn't a known stop.
-const dist=(a,b)=>{if(!isStop(a)||!isStop(b))return null;const p=pos(a),q=pos(b);return Math.hypot(p[0]-q[0],p[1]-q[1])};
+// Miles between two [lng,lat] points, as the crow flies.
+function miles(p,q){const r=x=>x*Math.PI/180,dLat=r(q[1]-p[1]),dLng=r(q[0]-p[0]);
+  const h=Math.sin(dLat/2)**2+Math.cos(r(p[1]))*Math.cos(r(q[1]))*Math.sin(dLng/2)**2;return 2*3958.8*Math.asin(Math.sqrt(h))}
+// Straight-line miles between demo stops; null when either place isn't a known stop.
+const dist=(a,b)=>isStop(a)&&isStop(b)?miles(pos(a),pos(b)):null;
 function toast(m){const t=$("#toast");t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2400)}
 const opts=sel=>Object.keys(SPOTS).map(s=>`<option${s===sel?" selected":""}>${esc(s)}</option>`).join("");
 
@@ -105,8 +117,9 @@ const UI={
   lede:"max-w-[44ch] text-soft",
   label:"flex flex-col gap-1.5 text-sm font-bold",
   input:"w-full rounded-lg border-[1.5px] border-rule bg-panel px-3 py-2.5 text-base font-normal text-ink placeholder:text-soft",
-  go:"min-h-12 w-full rounded-[10px] bg-ink px-4 py-3.5 text-[1.05rem] font-bold text-ground transition-colors hover:bg-route",
-  quiet:"min-h-11 shrink-0 rounded-lg border-[1.5px] border-rule px-3.5 py-2 text-sm font-bold text-ink hover:border-ink",
+  go:"min-h-12 w-full rounded-[10px] bg-ink px-4 py-3.5 text-[1.05rem] font-bold text-ground transition-colors hover:bg-route disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-ink",
+  quiet:"min-h-11 shrink-0 rounded-lg border-[1.5px] border-rule px-3.5 py-2 text-sm font-bold text-ink hover:border-ink disabled:cursor-not-allowed disabled:opacity-50",
+  map:"h-64 overflow-hidden rounded-2xl border border-rule bg-campus sm:h-80",
   chips:"flex flex-wrap gap-2",
   chip:"min-h-11 rounded-full border-[1.5px] border-rule bg-panel px-3.5 py-2 text-sm font-semibold text-ink aria-pressed:border-route aria-pressed:bg-route aria-pressed:text-panel",
   legend:"text-sm font-bold",
@@ -128,20 +141,185 @@ const samePlace=(a,b)=>a.toLowerCase()===b.toLowerCase();
 function routeHint(from,to){
   if(!from||!to)return"Type a pickup and a drop-off.";
   if(samePlace(from,to))return"Pick two different places.";
-  const km=dist(from,to);
-  if(km===null)return"Distance and drive time show for known campus and town stops.";
-  return`${(km/42).toFixed(1)} mi, about ${Math.max(4,Math.round(km/9))} min drive.`;
+  const mi=dist(from,to);
+  if(mi===null)return geo.ready?"Finding that place on the map...":"Distance and drive time show for known campus and town stops.";
+  return`${mi.toFixed(1)} mi, about ${Math.max(4,Math.round(mi*3))} min drive.`;
 }
-let raf;
+
+/* ---------- maps and live tracking ---------- */
+const CFG=window.GCLIFTS_CONFIG||null;
+const isPt=p=>Array.isArray(p)&&p.length===2&&p.every(Number.isFinite);
+// The point a fraction k of the way along a line, measured by distance.
+function along(line,k){
+  const seg=line.slice(1).map((p,i)=>miles(line[i],p));
+  let want=seg.reduce((t,s)=>t+s,0)*Math.min(1,Math.max(0,k));
+  for(let i=0;i<seg.length;i++){
+    if(want<=seg[i]){const t=seg[i]?want/seg[i]:0,a=line[i],b=line[i+1];return[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t]}
+    want-=seg[i];
+  }
+  return line[line.length-1];
+}
+
+// Amazon Location Service calls made with the page's restricted browser key. Results are cached
+// for the page's lifetime because every lookup is billed.
+class GeoService{
+  constructor(cfg){this.cfg=cfg;this.places=new Map();this.routes=new Map()}
+  get ready(){return!!(this.cfg&&this.cfg.locationKey)}
+  url(svc,path){return`https://${svc}.geo.${this.cfg.region}.amazonaws.com/v2/${path}?key=${encodeURIComponent(this.cfg.locationKey)}`}
+  styleUrl(dark){return this.url("maps","styles/Standard/descriptor")+"&color-scheme="+(dark?"Dark":"Light")}
+  async post(svc,path,body){
+    const r=await fetch(this.url(svc,path),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});
+    if(!r.ok)throw new Error(`Location Service ${svc} returned ${r.status}`);
+    return r.json();
+  }
+  cached(map,key,load){if(!map.has(key))map.set(key,load().catch(e=>{map.delete(key);throw e}));return map.get(key)}
+  // Known stops skip the lookup; anything else is geocoded with a bias toward campus.
+  async locate(name){
+    if(isStop(name))return pos(name);
+    if(!this.ready)return null;
+    return this.cached(this.places,name.toLowerCase(),()=>this.post("places","geocode",
+      {QueryText:name,BiasPosition:CAMPUS,Filter:{IncludeCountries:["USA"]},MaxResults:1}).then(d=>d.ResultItems?.[0]?.Position||null));
+  }
+  // Road route through [lng,lat] points: one {line, mi, min} per leg.
+  route(points){
+    const body={Origin:points[0],Destination:points[points.length-1],TravelMode:"Car",LegGeometryFormat:"Simple",LegAdditionalFeatures:["Summary"]};
+    if(points.length>2)body.Waypoints=points.slice(1,-1).map(p=>({Position:p}));
+    return this.cached(this.routes,JSON.stringify(points),()=>this.post("routes","routes",body).then(d=>d.Routes[0].Legs.map(l=>{
+      const o=l.VehicleLegDetails.Summary.Overview;return{line:l.Geometry.LineString,mi:o.Distance/1609.34,min:o.Duration/60}})));
+  }
+}
+const geo=new GeoService(CFG);
+const mapsReady=()=>geo.ready&&typeof maplibregl!=="undefined";
+const isDark=()=>{const t=document.documentElement.dataset.theme;return t?t==="dark":matchMedia("(prefers-color-scheme: dark)").matches};
+
+// One ride's AppSync Events channel: subscribes over a WebSocket and publishes over HTTPS.
+// Every event says who sent it ("rider" or "driver") because subscribers also receive their own events.
+class LiveChannel{
+  static get ready(){return!!(CFG&&CFG.eventsKey)}
+  constructor(cfg,id,{onEvent,onReady}){this.cfg=cfg;this.path="/rides/"+id;this.onEvent=onEvent;this.onReady=onReady;this.closed=false;this.connect()}
+  get auth(){return{host:this.cfg.eventsHttp,"x-api-key":this.cfg.eventsKey}}
+  connect(){
+    const header=btoa(JSON.stringify(this.auth)).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+    const ws=this.ws=new WebSocket(`wss://${this.cfg.eventsRealtime}/event/realtime`,["aws-appsync-event-ws","header-"+header]);
+    ws.onopen=()=>ws.send(JSON.stringify({type:"connection_init"}));
+    ws.onmessage=e=>{const m=JSON.parse(e.data);
+      if(m.type==="connection_ack")ws.send(JSON.stringify({type:"subscribe",id:crypto.randomUUID(),channel:this.path,authorization:this.auth}));
+      else if(m.type==="subscribe_success")this.onReady?.();
+      else if(m.type==="data"){try{const ev=JSON.parse(m.event);if(ev&&typeof ev==="object")this.onEvent(ev)}catch(err){}}
+      else if(/error/.test(m.type))console.warn("Live channel:",m)};
+    // Phones drop the socket when the screen sleeps, so keep reconnecting until the ride ends.
+    ws.onclose=()=>{if(!this.closed)setTimeout(()=>{if(!this.closed)this.connect()},2000)};
+  }
+  publish(ev){
+    return fetch(`https://${this.cfg.eventsHttp}/event`,{method:"POST",headers:{"content-type":"application/json","x-api-key":this.cfg.eventsKey},
+      body:JSON.stringify({channel:this.path,events:[JSON.stringify(ev)]})}).catch(()=>{});
+  }
+  close(){this.closed=true;this.ws?.close()}
+}
+
+// MapLibre map of one ride: pickup and drop-off pins, the driver's approach (dashed), the trip, and the car.
+class RideMap{
+  constructor(el,driverName){
+    this.driverName=driverName;this.markers={};this.gone=false;
+    this.map=new maplibregl.Map({container:el,style:geo.styleUrl(isDark()),center:CAMPUS,zoom:13,attributionControl:{compact:true}});
+    this.map.addControl(new maplibregl.NavigationControl({showCompass:false}),"top-right");
+    this.loaded=new Promise(r=>this.map.on("load",r));
+  }
+  pin(name,at,cls,html=""){
+    if(this.gone||!isPt(at))return;
+    if(!this.markers[name]){const el=document.createElement("div");el.className=cls;el.innerHTML=html;this.markers[name]=new maplibregl.Marker({element:el}).setLngLat(at).addTo(this.map)}
+    else this.markers[name].setLngLat(at);
+  }
+  stops(pickup,dropoff){
+    this.pin("pickup",pickup,"size-4 rounded-full border-4 border-route bg-panel shadow-md");
+    this.pin("dropoff",dropoff,"size-4 rounded-full bg-permit shadow-[inset_0_0_0_3px_var(--permit-ink)] shadow-md");
+  }
+  car(at,isLive){
+    this.pin("car",at,"grid size-9 place-items-center rounded-full border-[3px] border-panel font-display text-[.75rem] font-[850] text-white shadow-lg",esc(initials(this.driverName)));
+    const el=this.markers.car?.getElement();if(!el)return;
+    el.style.background=avColor(this.driverName);el.classList.toggle("ring-4",!!isLive);el.classList.toggle("ring-route/50",!!isLive);
+    if(isLive&&!this.map.getBounds().contains(at))this.map.easeTo({center:at});
+  }
+  async line(id,coords,dashed){
+    await this.loaded;if(this.gone)return;
+    const data={type:"Feature",properties:{},geometry:{type:"LineString",coordinates:coords}},src=this.map.getSource(id);
+    if(src)return src.setData(data);
+    const css=getComputedStyle(document.documentElement);
+    this.map.addSource(id,{type:"geojson",data});
+    this.map.addLayer({id,type:"line",source:id,layout:{"line-cap":"round","line-join":"round"},
+      paint:{"line-color":css.getPropertyValue(dashed?"--soft":"--route").trim(),"line-width":dashed?3:5,...(dashed?{"line-dasharray":[1.5,1.5]}:{})}});
+  }
+  fit(points){
+    points=points.filter(isPt);if(this.gone||!points.length)return;
+    const b=new maplibregl.LngLatBounds(points[0],points[0]);points.forEach(p=>b.extend(p));
+    this.map.fitBounds(b,{padding:40,maxZoom:15,duration:0});
+  }
+  remove(){this.gone=true;this.map.remove()}
+}
+
+// Pins the stops and draws the road route. Resolves to {approach, trip} legs, or null without a route.
+async function plotRide(map,{start,pickup,dropoff}){
+  map?.stops(pickup,dropoff);map?.fit([start,pickup,dropoff]);
+  if(!isPt(start)||!isPt(pickup)||!isPt(dropoff)||!geo.ready)return null;
+  const same=miles(start,pickup)<.02;
+  const legs=await geo.route(same?[pickup,dropoff]:[start,pickup,dropoff]);
+  const out={approach:same?{line:[start,pickup],mi:0,min:0}:legs[0],trip:legs[legs.length-1]};
+  if(map){map.line("trip",out.trip.line,false);map.line("approach",out.approach.line,true);map.fit([...out.approach.line,...out.trip.line])}
+  return out;
+}
+
+// What the open ride screen is showing. Torn down whenever the view re-renders.
+let raf,rideMap=null,live=null,rideRT=null;
+function teardownRide(){cancelAnimationFrame(raf);rideMap?.remove();live?.close();rideMap=live=rideRT=null}
+function startRide(a,d){
+  const rt=rideRT={live:false};
+  rt.points=Promise.all([d.zone,a.from,a.to].map(p=>geo.locate(p).catch(()=>null))).then(([start,pickup,dropoff])=>({start,pickup,dropoff}));
+  if(mapsReady()&&$("#map"))rideMap=new RideMap($("#map"),d.name);
+  rt.points.then(async p=>{
+    if(rideRT!==rt)return;
+    rt.pickup=p.pickup;
+    if(!rt.live&&isPt(p.start))rideMap?.car(p.start,false);
+    const legs=await plotRide(rideMap,p);
+    if(!legs||rideRT!==rt)return;
+    rt.approach=legs.approach.line;
+    // Swap the straight-line estimate for the road distance and time, once per ride.
+    if(a.roadMi===undefined&&legs.approach.mi>0){
+      a.roadMi=legs.approach.mi;a.eta=Math.max(1,Math.round(legs.approach.min));save();
+      const box=$("#etabox");if(box)box.innerHTML=etaBox(a.eta);
+    }
+  }).catch(()=>{});
+  if(LiveChannel.ready)live=new LiveChannel(CFG,a.live,{onReady:sendTrip,onEvent:onLive});
+}
+// Tells a driver screen that just joined which ride it's on.
+async function sendTrip(){
+  const a=S.active,rt=rideRT,ch=live;if(!a||!rt||!ch)return;
+  const p=await rt.points,d=drv(a.driverId);
+  ch.publish({by:"rider",kind:"trip",code:a.code,from:a.from,to:a.to,rider:first(S.user.name),car:d.car,...p});
+}
+function onLive(ev){
+  const a=S.active,rt=rideRT;if(!a||!rt||ev.by!=="driver")return;
+  const n=first(drv(a.driverId).name),note=$("#livestate");
+  if(ev.kind==="hello")return sendTrip();
+  if(ev.kind==="stop"){
+    rt.live=false;const el=rideMap?.markers.car?.getElement();el?.classList.remove("ring-4","ring-route/50");
+    if(note)note.textContent=`${n} stopped sharing their location.`;return;
+  }
+  if(ev.kind!=="pos"||!isPt(ev.at))return;
+  // Real positions replace the simulated progress for the rest of this screen.
+  rt.live=true;cancelAnimationFrame(raf);rideMap?.car(ev.at,true);
+  if(note)note.textContent=ev.sim?`${n} is sharing a simulated drive.`:`${n} is sharing their live location.`;
+  if(isPt(rt.pickup)){const mi=miles(ev.at,rt.pickup);showStage(mi<.06?3:mi<.4?2:1,mi,Math.max(1,Math.round(mi*3)))}
+}
+
 // Simulated progress: the driver heads from their area to the pickup and the status card updates as they go.
 function trackRide(){
   cancelAnimationFrame(raf);const a=S.active;if(!a||!$("#st"))return;
   const d=drv(a.driverId);
-  const total=isStop(a.from)?dist(d.zone,a.from)/42:null;
   if(!a.startedAt){a.startedAt=Date.now();save()}
   const step=()=>{
-    // Stop once the ride screen is gone; it picks up from startedAt when the rider comes back.
-    if(S.active!==a||!$("#st"))return;
+    // Stop once the ride screen is gone or live positions arrive; it picks up from startedAt when the rider comes back.
+    if(S.active!==a||!$("#st")||rideRT?.live)return;
+    const total=a.roadMi??(isStop(a.from)?dist(d.zone,a.from):null);
     const k=Math.min(1,(Date.now()-a.startedAt)/12000);
     trip(k,total);
     if(k<1)raf=requestAnimationFrame(step);
@@ -149,12 +327,16 @@ function trackRide(){
   step();
 }
 function trip(k,total){
-  const a=S.active;if(!a)return;const d=drv(a.driverId),n=first(d.name);
-  const stage=k>=1?3:k>.8?2:1;
+  const a=S.active;if(!a)return;
   const left=a.eta===null?null:Math.max(0,Math.ceil(a.eta*(1-k)));
+  showStage(k>=1?3:k>.8?2:1,total===null?null:total*(1-k),left);
+  if(rideRT?.approach)rideMap?.car(along(rideRT.approach,k),false);
+}
+function showStage(stage,mi,left){
+  const a=S.active;if(!a)return;const d=drv(a.driverId),n=first(d.name);
   const now=$("#st"),sub=$("#stsub");if(!now)return;
   now.textContent=stage===3?`${n} is here. Check the ride code.`:stage===2?`${n} is arriving`:`${n} is on the way`;
-  sub.textContent=stage===3?`Look for a ${d.car}.`:total===null?`Heading to ${a.from}.`:total===0?`Already at ${a.from}.`:`${(total*(1-k)).toFixed(1)} mi away, about ${Math.max(1,left)} min.`;
+  sub.textContent=stage===3?`Look for a ${d.car}.`:mi===null||left===null?`Heading to ${a.from}.`:mi===0?`Already at ${a.from}.`:`${mi.toFixed(1)} mi away, about ${Math.max(1,left)} min.`;
   document.querySelectorAll("#steps span").forEach((x,i)=>x.classList.toggle("on",i<=stage));
   document.querySelectorAll("#steplabels span").forEach((x,i)=>x.innerHTML=i===stage?`<b>${x.textContent}</b>`:x.textContent);
   const eta=$("#etan");if(eta&&left!==null)eta.textContent=stage===3?"0":left;
@@ -167,15 +349,15 @@ function match(){
   if(!cands.length)return null;
   const scored=cands.map(d=>{
     const past=log.filter(r=>r.driverId===d.id);
-    const km=dist(d.zone,from);
+    const mi=dist(d.zone,from);
     const avg=past.length?past.reduce((t,r)=>t+r.rating,0)/past.length:0;
     const overlap=d.pay.filter(p=>pay.includes(p));
-    let score=km===null?0:-km/20,why=[];
+    let score=mi===null?0:-mi*2,why=[];
     if(prefer===d.id){score+=100;why.push(`You asked for ${first(d.name)}`)}
     if(past.length){score+=10+past.length*3+avg;why.push(`${past.length} past ride${past.length>1?"s":""} together, ${avg.toFixed(1)} stars`)}
     if(overlap.length){score+=8;why.push(`Takes ${overlap.join(" or ")}`)}else if(pay.length)score-=6;
     if(d.zone===from)why.push(`Already at ${from}`);
-    return{d,score,why,eta:km===null?null:Math.max(2,Math.round(km/10)+2)};
+    return{d,score,why,eta:mi===null?null:Math.max(2,Math.round(mi*3)+2)};
   }).sort((x,y)=>y.score-x.score);
   return scored[0];
 }
@@ -203,6 +385,7 @@ const code=()=>"GC-"+String(Math.floor(1000+Math.random()*9000));
 
 /* ---------- views ---------- */
 function render(){
+  teardownRide();
   if(S.active&&!drv(S.active.driverId)){S.active=null;save();toast("Your driver is no longer available. Request a new ride.")}
   $("#tabs").hidden=!S.user;
   $("#who").textContent=S.user?(S.user.school?S.user.school+", ":"")+S.user.email:"";
@@ -292,7 +475,17 @@ function rideView(){
       <div class="${UI.profiles}" id="again">${past.map(d=>profile(d,{tag:"button",attrs:`type="button" data-id="${d.id}" aria-pressed="${D.prefer===d.id}"`,paid:D.pay,
         footer:`<span></span><span class="req text-sm font-bold text-route">${D.prefer===d.id?"Requested":"Request"}</span>`})).join("")}</div></div>`:""}
   </div>`;
-  const route=()=>$("#route").textContent=routeHint(D.from,D.to);
+  const route=()=>{const el=$("#route"),want=D.from+"|"+D.to;el.textContent=routeHint(D.from,D.to);
+    clearTimeout(route.t);if(!geo.ready||!D.from||!D.to||samePlace(D.from,D.to))return;
+    // Wait for a pause in typing so each keystroke isn't a billed lookup.
+    route.t=setTimeout(async()=>{
+      const still=()=>el.isConnected&&D.from+"|"+D.to===want;
+      try{const [p,q]=await Promise.all([geo.locate(D.from),geo.locate(D.to)]);if(!still())return;
+        if(!p||!q)return el.textContent="Couldn't find that place on the map. You can still request a ride.";
+        const [leg]=await geo.route([p,q]);if(still())el.textContent=`${leg.mi.toFixed(1)} mi by road, about ${Math.max(1,Math.round(leg.min))} min drive.`}
+      // Two known stops already show a straight-line estimate, so only replace the "Finding..." text.
+      catch(e){if(still()&&!(isStop(D.from)&&isStop(D.to)))el.textContent="Couldn't reach the map service. You can still request a ride."}},600)};
+  route();
   $("#from").oninput=e=>{D.from=known(e.target.value);save();route()};
   $("#to").oninput=e=>{D.to=known(e.target.value);save();route()};
   $("#pay").onclick=e=>{const c=e.target.closest("button");if(!c)return;const on=c.getAttribute("aria-pressed")!=="true";c.setAttribute("aria-pressed",on);
@@ -305,7 +498,7 @@ function rideView(){
     if(!D.pay.length)return $("#err").textContent="Choose at least one way you can pay.";
     const m=match();
     if(!m)return $("#err").textContent="No drivers are online right now. Try again in a few minutes.";
-    S.active={driverId:m.d.id,from:D.from,to:D.to,why:m.why,eta:m.eta,pay:[...D.pay],code:code(),when:new Date().toISOString()};
+    S.active={driverId:m.d.id,from:D.from,to:D.to,why:m.why,eta:m.eta,pay:[...D.pay],code:code(),when:new Date().toISOString(),live:crypto.randomUUID()};
     D.prefer=null;save();render();toast(`Matched with ${first(m.d.name)}`);
   };
 }
@@ -335,10 +528,15 @@ function wireStars(){
   box.onmouseover=e=>{const i=e.target.closest("label")?.querySelector("input");if(i)show(+i.value)};
   box.onmouseleave=()=>show(picked());
 }
+const etaBox=eta=>eta===null?`<div class="text-right"><small class="block text-[.8rem] font-semibold text-soft">On the way</small></div>`
+  :`<div class="text-right font-display text-[2rem] leading-none font-black tabular-nums [font-stretch:80%]"><span id="etan">${eta}</span><small class="block font-body text-[.8rem] font-semibold text-soft">min away</small></div>`;
 function activeView(){
   const a=S.active,d=drv(a.driverId),ok=d.pay.filter(p=>a.pay.includes(p)),n=first(d.name);
   if(!a.chat){a.chat=[{who:"them",text:GREETING[d.id]||`Hey, it's ${n}. I'm on my way in the ${d.car}.`,t:Date.now()}];save()}
   const shareText=`I'm riding with ${d.name} (${d.car}) from ${a.from} to ${a.to}. Ride code ${a.code}.${a.eta===null?"":` ETA ${a.eta} min.`} Sent from GClifts.`;
+  // Rides matched before live tracking existed get a channel id the first time they're shown.
+  if(!a.live){a.live=crypto.randomUUID();save()}
+  const driveLink=`${location.origin}${location.pathname}#drive=${a.live}`;
   const tm=t=>new Date(t).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"});
   const bubbles=()=>a.chat.map(m=>`<div class="${MSG[m.who]}">${esc(m.text)}<small class="mt-0.5 block text-[.72rem] opacity-75">${m.who==="me"?"You":esc(n)}, ${tm(m.t)}</small></div>`).join("");
   $("#view").innerHTML=`<div class="${UI.stack}">
@@ -347,12 +545,20 @@ function activeView(){
       <div class="grid grid-cols-4 gap-1.5 *:h-1.5 *:rounded-[3px] *:bg-rule [&>.on]:bg-route" id="steps"><span class="on"></span><span></span><span></span><span></span></div>
       <div class="grid grid-cols-4 gap-1.5 text-xs text-soft [&_b]:text-ink" id="steplabels"><span>Matched</span><span>On the way</span><span>Arriving</span><span>Here</span></div>
     </div>
+    ${mapsReady()?`<div id="map" class="${UI.map}" role="region" aria-label="Map of your ride"></div>`:""}
     <div class="${UI.form}" role="group" aria-label="Your matched ride">
       <div class="grid grid-cols-[1fr_auto] items-end gap-x-3 gap-y-0.5"><div class="min-w-0"><h3 class="m-0 font-display text-[1.35rem] font-bold [font-stretch:110%]">${esc(d.name)}</h3><div class="${UI.sub}">${esc(d.car)}</div></div>
-        ${a.eta===null?`<div class="text-right"><small class="block text-[.8rem] font-semibold text-soft">On the way</small></div>`:`<div class="text-right font-display text-[2rem] leading-none font-black tabular-nums [font-stretch:80%]"><span id="etan">${a.eta}</span><small class="block font-body text-[.8rem] font-semibold text-soft">min away</small></div>`}</div>
+        <div id="etabox">${etaBox(a.eta)}</div></div>
       <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-y border-rule py-3"><span class="text-sm font-semibold">Ride code. Ask ${esc(n)} to say it before you get in.</span><span class="font-display text-[2rem] leading-none font-black tracking-[.02em] tabular-nums [font-stretch:62%]">${a.code}</span></div>
       <p class="${UI.hint}">${a.why.length?esc(a.why.join(". "))+".":"Closest driver who's online."}</p>
     </div>
+    ${LiveChannel.ready?`<div class="${UI.form}">
+      <div class="${UI.tight}"><h3 class="${UI.h3}">${esc(n)}'s live location</h3>
+        <p class="text-sm font-semibold" id="livestate" aria-live="polite">Until ${esc(n)} starts sharing, the map shows an estimate.</p></div>
+      <div class="${UI.tight}"><span class="${UI.legend}">Driver link</span>
+        <div class="flex items-stretch gap-2"><input id="drivelink" class="${UI.input} min-w-0" readonly value="${esc(driveLink)}" aria-label="Link for ${esc(n)} to share their location"><button class="${UI.quiet}" id="copylink">Copy</button></div>
+        <p class="${UI.hint}">Send this to ${esc(n)}. It opens a driver screen for this ride only, and sharing stops when the ride ends. In this demo, open it in another tab or on another device to play the driver.</p></div>
+    </div>`:""}
     <div class="${UI.form}">
       <h3 class="${UI.h3}">Message ${esc(n)}</h3>
       <div class="flex max-h-[260px] flex-col gap-2 overflow-y-auto px-0.5 py-1" id="chat">${bubbles()}</div>
@@ -376,8 +582,12 @@ function activeView(){
       <button class="${UI.go}" id="done">Finish ride and save to log</button>
       <button class="${UI.quiet}" id="cancel">Cancel this ride</button>
     </div></div>`;
+  startRide(a,d);
   trackRide();
   const box=$("#chat");box.scrollTop=box.scrollHeight;
+  const cl=$("#copylink");if(cl)cl.onclick=async()=>{const i=$("#drivelink");try{await navigator.clipboard.writeText(i.value);toast("Driver link copied")}catch(e){i.select();toast("Selected. Press copy on your keyboard.")}};
+  // Tells the driver screen to stop sharing, before render() closes the channel.
+  const endLive=()=>live?.publish({by:"rider",kind:"end"});
   $("#chatf").onsubmit=e=>{e.preventDefault();const t=$("#chatin").value.trim();if(!t)return;
     a.chat.push({who:"me",text:t,t:Date.now()});$("#chatin").value="";save();box.innerHTML=bubbles();box.scrollTop=box.scrollHeight;
     $("#typing").textContent=`${n} is typing...`;
@@ -390,8 +600,8 @@ function activeView(){
     S.log.unshift({id:"r"+Date.now(),riderEmail:S.user.email,driverId:d.id,from:a.from,to:a.to,when:a.when,
       paidWith:$("#paid").value,rating,review:$("#review").value.trim(),confirmed:false,endedAt:Date.now(),
       riderName:S.user.name,chat:a.chat.map(m=>({...m,who:m.who==="me"?"rider":"driver"}))});
-    S.active=null;S.tab="log";save();render();toast(`Ride saved. Waiting for ${n} to confirm your payment.`)};
-  $("#cancel").onclick=()=>{S.active=null;save();render();toast("Ride canceled")};
+    endLive();S.active=null;S.tab="log";save();render();toast(`Ride saved. Waiting for ${n} to confirm your payment.`)};
+  $("#cancel").onclick=()=>{endLive();S.active=null;save();render();toast("Ride canceled")};
 }
 
 const RIDER_REPLIES=[[/paid|pay|sent|money|venmo|paypal|cash/i,"{paid}"],[/thank|thx|ty\b/i,"Thank you for the ride!"],[/.*/,"Sounds good!"]];
@@ -515,8 +725,72 @@ function logView(){
   $("#out").onclick=()=>{pickedSchool=null;pending=null;S.user=null;S.active=null;S.tab="ride";save();render()};
 }
 
+// Opened from a rider's driver link. Shares this device's location (or a simulated drive) on that ride's channel only.
+function liveDriverView(id){
+  $("#who").textContent="Driver screen";
+  if(!LiveChannel.ready){$("#view").innerHTML=`<p class="${UI.hint}">Live tracking isn't set up on this copy of GClifts. Run setup-live-map.sh to turn it on.</p>`;return}
+  $("#view").innerHTML=`<div class="${UI.stack}">
+    <h2 class="${UI.h2}">Share your drive</h2>
+    <div class="flex flex-col gap-1.5 rounded-2xl border border-rule bg-panel p-4 sm:p-5" aria-live="polite">
+      <div class="font-display text-[1.3rem] leading-[1.2] font-extrabold [font-stretch:108%]" id="dtrip">Connecting to the ride...</div>
+      <div class="${UI.sub}" id="dsub">This can take a few seconds. The rider's ride screen needs to be open.</div>
+    </div>
+    ${mapsReady()?`<div id="map" class="${UI.map}" role="region" aria-label="Map of the ride"></div>`:""}
+    <div class="${UI.form}">
+      <button class="${UI.go}" id="share" disabled>Share my live location</button>
+      <button class="${UI.quiet}" id="sim" disabled>Simulate the drive</button>
+      <button class="${UI.go}" id="stopShare" hidden>Stop sharing</button>
+      <p class="${UI.err}" id="derr" aria-live="polite"></p>
+      <p class="${UI.hint}">Your rider sees where you are only while you share, and only for this ride. Sharing stops when you tap Stop or the rider ends the ride. GClifts doesn't save your location.</p>
+      <p class="${UI.hint}">Simulate the drive sends points along the real road route from your area to the pickup, for demos away from Milledgeville.</p>
+    </div></div>`;
+  const map=mapsReady()?new RideMap($("#map"),S.user?.name||"Driver"):null;
+  let trip=null,watch=null,timer=null,last=0;
+  const err=t=>$("#derr").textContent=t;
+  const sharing=on=>{$("#share").hidden=$("#sim").hidden=on;$("#stopShare").hidden=!on};
+  const send=(at,sim)=>{ch.publish({by:"driver",kind:"pos",at,sim});map?.car(at,true)};
+  function stop(notify){
+    if(watch!==null)navigator.geolocation.clearWatch(watch);clearInterval(timer);
+    const was=watch!==null||timer!==null;watch=timer=null;sharing(false);
+    if(notify&&was)ch.publish({by:"driver",kind:"stop"});
+  }
+  const ch=new LiveChannel(CFG,id,{onReady:()=>ch.publish({by:"driver",kind:"hello"}),onEvent:ev=>{
+    if(ev.by!=="rider")return;
+    if(ev.kind==="end"){stop(false);ch.close();$("#share").disabled=$("#sim").disabled=true;
+      $("#dtrip").textContent="This ride has ended";$("#dsub").textContent="Location sharing stopped. You can close this page.";return}
+    if(ev.kind!=="trip"||trip)return;
+    trip={code:String(ev.code||""),from:String(ev.from||""),to:String(ev.to||""),rider:String(ev.rider||"your rider"),
+      start:isPt(ev.start)?ev.start:null,pickup:isPt(ev.pickup)?ev.pickup:null,dropoff:isPt(ev.dropoff)?ev.dropoff:null};
+    $("#dtrip").textContent=`Pick up ${trip.rider} at ${trip.from}`;
+    $("#dsub").textContent=`Drop-off: ${trip.to}. Say the ride code ${trip.code} before they get in.`;
+    $("#share").disabled=false;$("#sim").disabled=!(trip.start&&trip.pickup);
+    if(trip.start)map?.car(trip.start,false);
+    plotRide(map,trip).catch(()=>{});
+  }});
+  $("#share").onclick=()=>{err("");
+    if(!navigator.geolocation)return err("This browser can't share its location. Try Simulate the drive.");
+    sharing(true);
+    // A position every 2 seconds is plenty for a car on town streets and keeps the event count low.
+    watch=navigator.geolocation.watchPosition(p=>{if(Date.now()-last<2000)return;last=Date.now();send([p.coords.longitude,p.coords.latitude],false)},
+      e=>{stop(true);err(e.code===1?"Location permission was denied. Allow it in your browser's site settings, or use Simulate the drive.":"Couldn't get your location. Try again, or use Simulate the drive.")},
+      {enableHighAccuracy:true,maximumAge:5000});
+  };
+  $("#sim").onclick=async()=>{err("");sharing(true);
+    let line=[trip.start,trip.pickup];
+    try{if(miles(trip.start,trip.pickup)>.02)line=(await geo.route([trip.start,trip.pickup]))[0].line}catch(e){}
+    if($("#stopShare").hidden)return;  // stopped while the route loaded
+    let k=0;send(line[0],true);
+    timer=setInterval(()=>{k=Math.min(1,k+1/30);send(along(line,k),true);
+      if(k>=1){clearInterval(timer);$("#dsub").textContent=`You're at the pickup. Say the ride code ${trip.code}.`}},1000);
+  };
+  $("#stopShare").onclick=()=>stop(true);
+  addEventListener("pagehide",()=>stop(true));
+}
+
 $("#tabs").onclick=e=>{const b=e.target.closest("button");if(!b)return;S.tab=b.dataset.tab;save();render()};
-render();
+if(DRIVE_ID)liveDriverView(DRIVE_ID);else render();
+// Pasting a driver link into an open tab only changes the hash, so reload to switch screens.
+addEventListener("hashchange",()=>{if(DRIVE_ID||/^#drive=/.test(location.hash))location.reload()});
 </script>
 </body>
 </html>
