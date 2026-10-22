@@ -50,6 +50,10 @@ const SPOTS={
   "The Village apts":[-83.25993,33.07739],"Walmart Supercenter":[-83.2647,33.11724],"Kroger":[-83.27394,33.15319],
   "CVS Pharmacy":[-83.22619,33.07624],"Downtown Milledgeville":[-83.2266,33.0807],"Bus Station":[-83.2224,33.0839],"Airport shuttle stop":[-83.23814,33.15488]};
 const CAMPUS=[-83.2306,33.0801];
+// A made-up spot a few blocks from campus. Shared instead of the device's real location when
+// the driver is far from Milledgeville (or location is off), so demos anywhere stay on the GC map.
+const DEMO_SPOT=[-83.2352,33.0846];
+const DEMO_RADIUS_MI=25;
 // A driver's link to one ride (index.html#drive=<id>) opens the driver screen instead of the app.
 const DRIVE_ID=(location.hash.match(/^#drive=([\w-]{8,64})$/)||[])[1]||null;
 const SCHOOLS=[{name:"Georgia College & State University",short:"GC",city:"Milledgeville, GA",domains:["gcsu.edu","bobcats.gcsu.edu"]}];
@@ -747,7 +751,7 @@ function liveDriverView(id){
       <button class="${UI.go}" id="stopShare" hidden>Stop sharing</button>
       <p class="${UI.err}" id="derr" aria-live="polite"></p>
       <p class="${UI.hint}">Your rider sees where you are only while you share, and only for this ride. Sharing stops when you tap Stop or the rider ends the ride. GClifts doesn't save your location.</p>
-      <p class="${UI.hint}">Simulate the drive sends points along the real road route from your area to the pickup, for demos away from Milledgeville.</p>
+      <p class="${UI.hint}">Simulate the drive sends points along the real road route from your area to the pickup, for demos away from Milledgeville. If you share your location from more than ${DEMO_RADIUS_MI} miles away, the rider sees a made-up spot near GCSU instead.</p>
     </div></div>`;
   const map=mapsReady()?new RideMap($("#map"),S.user?.name||"Driver"):null;
   let trip=null,watch=null,timer=null,last=0;
@@ -772,12 +776,21 @@ function liveDriverView(id){
     if(trip.start)map?.car(trip.start,false);
     plotRide(map,trip).catch(()=>{});
   }});
-  $("#share").onclick=()=>{err("");
-    if(!navigator.geolocation)return err("This browser can't share its location. Try Simulate the drive.");
-    sharing(true);
+  // Shares the made-up spot near GCSU instead of a real location. Kept in sync every 2 seconds,
+  // like a real fix, so a rider screen that opens late still gets it.
+  const demoSpot=why=>{
+    if(watch!==null)navigator.geolocation.clearWatch(watch);watch=null;clearInterval(timer);
+    $("#dsub").textContent=`${why} Showing a made-up location near GCSU instead.`;
+    send(DEMO_SPOT,true);timer=setInterval(()=>send(DEMO_SPOT,true),2000);
+  };
+  $("#share").onclick=()=>{err("");sharing(true);
+    if(!navigator.geolocation)return demoSpot("This browser can't share its location.");
     // A position every 2 seconds is plenty for a car on town streets and keeps the event count low.
-    watch=navigator.geolocation.watchPosition(p=>{if(Date.now()-last<2000)return;last=Date.now();send([p.coords.longitude,p.coords.latitude],false)},
-      e=>{stop(true);err(e.code===1?"Location permission was denied. Allow it in your browser's site settings, or use Simulate the drive.":"Couldn't get your location. Try again, or use Simulate the drive.")},
+    watch=navigator.geolocation.watchPosition(p=>{if(Date.now()-last<2000)return;last=Date.now();
+        const at=[p.coords.longitude,p.coords.latitude];
+        if(miles(at,CAMPUS)>DEMO_RADIUS_MI)return demoSpot("You're not near Milledgeville.");
+        send(at,false)},
+      e=>demoSpot(e.code===1?"Location permission was denied.":"Couldn't get your location."),
       {enableHighAccuracy:true,maximumAge:5000});
   };
   $("#sim").onclick=async()=>{err("");sharing(true);
