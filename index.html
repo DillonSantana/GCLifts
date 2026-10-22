@@ -22,7 +22,8 @@
   <section class="flex min-w-0 flex-col gap-4">
     <header class="flex flex-wrap items-center justify-between gap-3">
       <img src="images/logo.jpg" width="960" height="298" alt="GClifts, Georgia College rideshare" class="h-14 w-auto rounded-xl sm:h-16">
-      <span class="min-w-0 truncate text-sm text-soft" id="who"></span>
+      <div class="flex min-w-0 items-center gap-3"><span class="min-w-0 truncate text-sm text-soft" id="who"></span>
+        <button type="button" id="logout" hidden class="min-h-11 shrink-0 rounded-lg border-[1.5px] border-rule px-3.5 py-2 text-sm font-bold text-ink hover:border-ink">Log out</button></div>
     </header>
     <nav id="tabs" hidden class="sticky top-0 z-10 -mx-4 flex border-b-[1.5px] border-rule bg-ground px-4 sm:static sm:mx-0 sm:gap-1 sm:px-0">
       <button data-tab="ride" class="-mb-[1.5px] min-h-11 flex-1 border-b-[3px] border-transparent px-3 py-2.5 text-[.95rem] font-bold text-soft hover:text-ink aria-[current=page]:border-route aria-[current=page]:text-ink sm:flex-none">Get a ride</button><button data-tab="drive" class="-mb-[1.5px] min-h-11 flex-1 border-b-[3px] border-transparent px-3 py-2.5 text-[.95rem] font-bold text-soft hover:text-ink aria-[current=page]:border-route aria-[current=page]:text-ink sm:flex-none">Drive</button><button data-tab="log" class="-mb-[1.5px] min-h-11 flex-1 border-b-[3px] border-transparent px-3 py-2.5 text-[.95rem] font-bold text-soft hover:text-ink aria-[current=page]:border-route aria-[current=page]:text-ink sm:flex-none">Ride log</button>
@@ -394,12 +395,121 @@ function render(){
   teardownRide();
   if(S.active&&!drv(S.active.driverId)){S.active=null;save();toast("Your driver is no longer available. Request a new ride.")}
   $("#tabs").hidden=!S.user;
+  $("#logout").hidden=!S.user;
   $("#who").textContent=S.user?(S.user.school?S.user.school+", ":"")+S.user.email:"";
   document.querySelectorAll("#tabs button").forEach(b=>b.setAttribute("aria-current",b.dataset.tab===S.tab?"page":"false"));
   if(!S.user)signin();else({ride:S.active?activeView:rideView,drive:driveView,log:logView})[S.tab]();
 }
 
 let pickedSchool=null,pending=null;
+// Log out from any screen. A ride in progress has to be finished or canceled first so it isn't lost.
+function logout(){
+  if(S.active)return toast("Finish or cancel your ride before you log out.");
+  pickedSchool=null;pending=null;authMode="login";S.user=null;S.tab="ride";save();render();toast("You're logged out");
+}
+/* ---------- real email verification with Amazon Cognito ---------- */
+// setup-live-map.sh deploys auth.yaml and adds userPoolId and clientId to window.GCLIFTS_CONFIG in config.js.
+// Cognito emails the 6-digit code itself, and a pre-sign-up check on AWS rejects any email outside the school's domains.
+// Without them the sign-in falls back to the demo code shown on screen.
+const AUTH=(c=>c?.clientId&&c?.region?c:null)(window.GCLIFTS_CONFIG);
+let authMode="signup",authErr="";
+async function cognito(action,params){
+  let res;
+  try{res=await fetch(`https://cognito-idp.${AUTH.region}.amazonaws.com/`,{method:"POST",
+    headers:{"Content-Type":"application/x-amz-json-1.1","X-Amz-Target":"AWSCognitoIdentityProviderService."+action},
+    body:JSON.stringify({ClientId:AUTH.clientId,...params})})}
+  catch(e){throw{code:"Network"}}
+  const body=await res.json().catch(()=>({}));
+  if(!res.ok)throw{code:String(body.__type||"").split("#").pop(),message:body.message||""};
+  return body;
+}
+const authMessage=e=>({
+  UsernameExistsException:"An account with this email already exists. Log in instead.",
+  UserLambdaValidationException:String(e.message).replace(/^PreSignUp failed with error /,"").replace(/\.?$/,"."),
+  InvalidPasswordException:"Use at least 8 characters, including a lowercase letter and a number.",
+  InvalidParameterException:"Check the email address and password, then try again.",
+  CodeMismatchException:"That code doesn't match. Check the email and try again.",
+  ExpiredCodeException:"That code expired. Send a new one.",
+  NotAuthorizedException:"Wrong email or password.",
+  LimitExceededException:"Too many attempts. Wait a few minutes, then try again.",
+  TooManyRequestsException:"Too many attempts. Wait a few minutes, then try again.",
+  TooManyFailedAttemptsException:"Too many attempts. Wait a few minutes, then try again.",
+  CodeDeliveryFailureException:"We couldn't send the email. Try again in a few minutes.",
+  Network:"Can't reach the sign-in service. Check your internet connection.",
+}[e.code]||"Something went wrong signing in. Try again.");
+// The ID token's middle part holds the verified email and name.
+function claims(token){const b=token.split(".")[1].replace(/-/g,"+").replace(/_/g,"/");
+  return JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b+"===".slice((b.length+3)%4)),c=>c.charCodeAt(0))))}
+async function finishLogin(email,password,sc){
+  const r=await cognito("InitiateAuth",{AuthFlow:"USER_PASSWORD_AUTH",AuthParameters:{USERNAME:email,PASSWORD:password}});
+  const c=claims(r.AuthenticationResult.IdToken);
+  pending=null;authMode="login";authErr="";
+  S.user={name:c.name||email.split("@")[0],email:c.email,school:sc.name};if(!S.seeded[c.email])seedRidesFor(c.email);save();render();toast("You're signed in");
+}
+function cognitoSignin(sc,intro,head){
+  const m=authMode,email=pending?.email||"";
+  const tab=(k,label)=>`<button type="button" data-mode="${k}" aria-pressed="${m===k}" class="${UI.chip}">${label}</button>`;
+  const emailField=`<label for="email" class="${UI.label}">School email<input id="email" class="${UI.input}" type="email" inputmode="email" autocomplete="username" value="${esc(email)}" placeholder="first.last@${esc(sc.domains[1]||sc.domains[0])}"></label>`;
+  const codeField=`<label for="code" class="${UI.label}">Verification code<input id="code" class="${UI.input} text-center font-display text-[1.6rem] font-extrabold tracking-[.3em] [font-stretch:70%]" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="000000"></label>`;
+  const pw=(id,label,auto)=>`<label for="${id}" class="${UI.label}">${label}<input id="${id}" class="${UI.input}" type="password" autocomplete="${auto}" minlength="8"></label>`;
+  const body={
+    signup:`<div class="${UI.chips}">${tab("signup","Create account")}${tab("login","Log in")}</div>${emailField}
+      <label for="name" class="${UI.label}">Your name<input id="name" class="${UI.input}" autocomplete="name" placeholder="First and last name"></label>
+      ${pw("password","Password","new-password")}<p class="${UI.hint}">At least 8 characters, including a lowercase letter and a number.</p>
+      <p class="${UI.err}" id="err"></p><button class="${UI.go}">Create account</button>`,
+    login:`<div class="${UI.chips}">${tab("signup","Create account")}${tab("login","Log in")}</div>${emailField}${pw("password","Password","current-password")}
+      <p class="${UI.err}" id="err"></p><button class="${UI.go}">Log in</button>
+      <button type="button" class="${UI.quiet}" data-mode="forgot">Forgot your password?</button>`,
+    confirm:`<h3 class="${UI.h3}">Check your email</h3>
+      <p class="${UI.hint}">We emailed a 6-digit code to <b class="[overflow-wrap:anywhere] text-ink">${esc(email)}</b>. Enter it to confirm the address is yours. It can take a minute, and it may land in junk mail.</p>
+      ${codeField}<p class="${UI.err}" id="err"></p><button class="${UI.go}">Verify email</button>
+      <div class="flex flex-wrap gap-2"><button type="button" class="${UI.quiet}" id="resend">Send a new code</button><button type="button" class="${UI.quiet}" data-mode="signup">Use a different email</button></div>`,
+    forgot:`<h3 class="${UI.h3}">Reset your password</h3><p class="${UI.hint}">We'll email you a code to set a new password.</p>${emailField}
+      <p class="${UI.err}" id="err"></p><button class="${UI.go}">Email me a code</button><button type="button" class="${UI.quiet}" data-mode="login">Back to log in</button>`,
+    reset:`<h3 class="${UI.h3}">Set a new password</h3><p class="${UI.hint}">If <b class="[overflow-wrap:anywhere] text-ink">${esc(email)}</b> has an account, we emailed it a code.</p>
+      ${codeField}${pw("password","New password","new-password")}<p class="${UI.hint}">At least 8 characters, including a lowercase letter and a number.</p>
+      <p class="${UI.err}" id="err"></p><button class="${UI.go}">Save new password</button><button type="button" class="${UI.quiet}" data-mode="login">Back to log in</button>`,
+  }[m];
+  $("#view").innerHTML=`<div class="${UI.stack}">${intro}<form id="f" class="${UI.form}" novalidate>${head}${body}</form></div>`;
+  $("#err").textContent=authErr;authErr="";
+  ($("#code")||$("#email")).focus();
+  $("#change").onclick=()=>{pickedSchool=null;pending=null;authMode="signup";signin()};
+  $("#f").onclick=e=>{const b=e.target.closest("[data-mode]");if(!b)return;authMode=b.dataset.mode;if(authMode==="signup"||authMode==="login")pending=pending&&{email:pending.email};signin()};
+  if($("#resend"))$("#resend").onclick=async e=>{e.currentTarget.disabled=true;
+    try{await cognito("ResendConfirmationCode",{Username:email});toast("We sent a new code")}catch(x){$("#err").textContent=authMessage(x)}
+    finally{if(e.target.isConnected)e.target.disabled=false}};
+  $("#f").onsubmit=async e=>{e.preventDefault();const btn=e.submitter||$("#f .min-h-12"),err=$("#err");err.textContent="";
+    const val=id=>$("#"+id)?.value.trim()||"",em=(val("email")||email).toLowerCase(),dom=em.split("@")[1]||"";
+    if(["signup","login","forgot"].includes(m)&&(!/^[^@\s]+@[^@\s]+$/.test(em)||!sc.domains.includes(dom)))
+      return err.textContent=`Use your ${sc.name} email. It must end in @${sc.domains.join(" or @")}.`;
+    if(m==="signup"&&!val("name"))return err.textContent="Enter your name so drivers know who to pick up.";
+    if(["signup","login","reset"].includes(m)&&!$("#password").value)return err.textContent="Enter your password.";
+    if(["confirm","reset"].includes(m)&&!/^\d{6}$/.test(val("code")))return err.textContent="Enter the 6-digit code from the email.";
+    btn.disabled=true;
+    try{
+      if(m==="signup"){const password=$("#password").value;
+        await cognito("SignUp",{Username:em,Password:password,UserAttributes:[{Name:"email",Value:em},{Name:"name",Value:val("name")}]});
+        pending={email:em,password};authMode="confirm";signin();}
+      else if(m==="confirm"){
+        try{await cognito("ConfirmSignUp",{Username:em,ConfirmationCode:val("code")})}
+        catch(x){if(x.code!=="NotAuthorizedException")throw x}   // already confirmed: go straight to logging in
+        if(pending?.password)await finishLogin(em,pending.password,sc);
+        else{authMode="login";authErr="";pending={email:em};signin();toast("Email verified. Log in with your password.")}}
+      else if(m==="login"){const password=$("#password").value;
+        try{await finishLogin(em,password,sc)}
+        catch(x){if(x.code!=="UserNotConfirmedException")throw x;
+          await cognito("ResendConfirmationCode",{Username:em});pending={email:em,password};authMode="confirm";signin();toast("Confirm your email first. We sent a new code.")}}
+      else if(m==="forgot"){await cognito("ForgotPassword",{Username:em});pending={email:em};authMode="reset";signin()}
+      else if(m==="reset"){const password=$("#password").value;
+        await cognito("ConfirmForgotPassword",{Username:em,ConfirmationCode:val("code"),Password:password});await finishLogin(em,password,sc)}
+    }catch(x){if(btn.isConnected){btn.disabled=false;err.textContent=authMessage(x)}else{authErr=authMessage(x);signin()}}
+  };
+}
+// Log out from any screen. A ride in progress has to be finished or canceled first so it isn't lost.
+function logout(){
+  if(S.active)return toast("Finish or cancel your ride before you log out.");
+  pickedSchool=null;pending=null;authMode="login";S.user=null;S.tab="ride";save();render();toast("You're logged out");
+}
 function signin(){
   const intro=`<h1 class="${UI.h1}">Rides from classmates, without the group chat.</h1>
     <p class="${UI.lede}">No more chasing a driver in a crowded GroupMe. Every rider and driver is a verified Georgia College student, you're matched with a driver automatically, and drivers confirm when they've been paid.</p>`;
@@ -418,6 +528,7 @@ function signin(){
   const sc=SCHOOLS[pickedSchool];
   const head=`<div class="flex items-center gap-3"><span class="${UI.face}">${esc(sc.short)}</span><div class="min-w-0 flex-1"><h3 class="${UI.h3}">${esc(sc.name)}</h3><div class="${UI.sub}">${esc(sc.city)}</div></div>
         <button type="button" class="${UI.quiet}" id="change">Change</button></div>`;
+  if(AUTH)return cognitoSignin(sc,intro,head);
   if(pending){
     $("#view").innerHTML=`<div class="${UI.stack}">${intro}
     <form id="f" class="${UI.form}" novalidate>
@@ -728,10 +839,9 @@ function logView(){
       <thead><tr><th>Date</th><th>Trip</th><th>Driver</th><th>Payment</th><th>Rating</th></tr></thead><tbody>
       ${log.map(r=>`<tr><td class="whitespace-nowrap tabular-nums">${fmt(r.when)}</td><td>${esc(r.from)} to ${esc(r.to)}${r.review?`<span class="block text-soft [overflow-wrap:anywhere]">"${esc(r.review)}"</span>`:""}</td><td>${esc(name(r))}</td><td>${esc(r.paidWith)} ${paystat(r)}</td><td class="whitespace-nowrap">${stars(r.rating)}</td></tr>`).join("")}
       </tbody></table></div></div>`:""}
-    <div class="flex flex-wrap gap-2.5"><button class="${UI.quiet}" id="reset">Reset my sample rides</button><button class="${UI.quiet}" id="out">Sign out</button></div>
+    <div class="flex flex-wrap gap-2.5"><button class="${UI.quiet}" id="reset">Reset my sample rides</button></div>
   </div>`;
   $("#reset").onclick=()=>{S.active=null;seedRidesFor(S.user.email);save();render();toast("Your sample rides were restored")};
-  $("#out").onclick=()=>{pickedSchool=null;pending=null;S.user=null;S.active=null;S.tab="ride";save();render()};
 }
 
 // Opened from a rider's driver link. Shares this device's location (or a simulated drive) on that ride's channel only.
@@ -805,6 +915,7 @@ function liveDriverView(id){
   addEventListener("pagehide",()=>stop(true));
 }
 
+$("#logout").onclick=logout;
 $("#tabs").onclick=e=>{const b=e.target.closest("button");if(!b)return;S.tab=b.dataset.tab;save();render()};
 if(DRIVE_ID)liveDriverView(DRIVE_ID);else render();
 // Pasting a driver link into an open tab only changes the hash, so reload to switch screens.
