@@ -33,7 +33,9 @@
 <div id="toast" role="status" hidden class="fixed bottom-[calc(20px+env(safe-area-inset-bottom,0px))] left-1/2 z-20 max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-[10px] bg-ink px-4 py-3 text-[.92rem] font-semibold text-ground shadow-lg"></div>
 
 <script>
-const KEY="gclifts-v8";
+const KEY="gclifts-v9";
+// Bumping KEY resets everyone's saved data: drop any older gclifts-* entries on load.
+try{Object.keys(localStorage).forEach(k=>{if(k.startsWith("gclifts-")&&k!==KEY)localStorage.removeItem(k)})}catch(e){}
 const PAY=["Cash App","Venmo","PayPal","Cash"];
 // Cash changes hands in person, so copy that assumes an app transfer needs its own wording.
 const CASH="Cash";
