@@ -32,17 +32,19 @@ Built, running locally (not deployed yet)
 
 Amazon Location Service: map tiles, real road routes with distance and drive time, and geocoding for places riders type in. The browser uses an API key that only allows read-only map, route and place calls from localhost and the CloudFront site.
 AWS AppSync Events: carries the driver's live location to the rider over a WebSocket, one channel per ride (`/rides/<random id>`).
+Amazon Cognito: real school-email sign-in. Cognito emails each student a 6-digit code to verify their address, and an AWS Lambda pre-sign-up check rejects any email that isn't @gcsu.edu or @bobcats.gcsu.edu, even if someone calls the sign-up API directly. Defined in `auth.yaml`; `setup-live-map.sh` deploys it.
 Next step (designed, not built yet)
 
-Amazon Cognito: school-email sign-in, with a Lambda pre-signup check that only accepts @gcsu.edu and @bobcats.gcsu.edu addresses.
 Amazon DynamoDB: Users, Drivers and Rides tables.
 AWS Lambda and Amazon API Gateway: run the driver-matching score (past rides, payment compatibility, distance) on the server.
 Amazon SNS: texts drivers when a ride is requested.
 
 ### 1. Connect to your school
 - The student picks their school first. For the demo, the only option is **Georgia College & State University**.
-- Then they enter their name and school email. Only `@gcsu.edu` and `@bobcats.gcsu.edu` addresses are accepted.
-- The app emails a 6-digit code, and they enter it to prove the address is theirs. (The demo shows the code on screen instead of sending an email.)
+- New students choose **Create account** and enter their school email, name and a password. Only `@gcsu.edu` and `@bobcats.gcsu.edu` addresses are accepted, checked both in the app and on AWS.
+- Amazon Cognito emails a 6-digit code, and they enter it to prove the address is theirs. **Send a new code** resends it.
+- After that they **Log in** with email and password. **Forgot your password?** emails a code to set a new one.
+- Without Cognito set up (no `config.js`, or opening the file directly), the app falls back to a demo sign-in that shows the code on screen.
 - Every user is a verified student, and students are only matched with people from their own school.
 
 ### 2. Request a ride
@@ -120,7 +122,7 @@ Russell Library, Maxwell Student Union, Student Health Center, The Village apts,
 
 The compiled stylesheet, `styles/app.css`, is committed, so you don't need to install anything to run the app.
 
-1. Create the map and live-tracking resources and write `config.js` (once, after `aws login`). The script reuses anything that already exists:
+1. Create the map, live-tracking and sign-in resources and write `config.js` (once, after `aws login`). The script reuses anything that already exists, and updates the sign-in stack if `auth.yaml` changed:
    ```bash
    bash setup-live-map.sh
    ```
@@ -152,7 +154,17 @@ aws cloudfront create-invalidation --distribution-id EFJ3FGX7Q0OQK --paths "/" "
 
 Check it worked: `curl -s https://d3exvjki5n2jnm.cloudfront.net/config.js | head -2` should print the "Written by setup-live-map.sh" comment, not HTML. (CloudFront answers missing files with `index.html`, so a missing `config.js` doesn't show up as a 404.) You only need to upload `config.js` again after re-running `setup-live-map.sh` creates new keys. The AppSync key expires after 365 days.
 
-Without `config.js` the app still runs, with straight-line estimates and no map or live tracking. Sharing real GPS from a phone needs the site on HTTPS, because browsers only give location to secure pages.
+Without `config.js` the app still runs, with straight-line estimates, no map or live tracking, and the demo sign-in. Sharing real GPS from a phone needs the site on HTTPS, because browsers only give location to secure pages.
+
+### Sign-in with Amazon Cognito
+
+`setup-live-map.sh` deploys `auth.yaml` as the CloudFormation stack `gclifts-auth` in us-east-2 and adds `userPoolId` and `clientId` to `config.js`. Both IDs are public by design; they identify the user pool but don't grant access to anything.
+
+- **Emails:** Cognito sends the codes itself, so there's no Amazon SES setup, but it's limited to a small number of emails per day. For a real launch, switch `EmailConfiguration` in `auth.yaml` to a verified SES address.
+- **Passwords:** at least 8 characters, with a lowercase letter and a number. The browser sends them to Cognito over HTTPS (`USER_PASSWORD_AUTH`).
+- **Security headers:** if the CloudFront distribution sets a Content-Security-Policy, its `connect-src` must allow `https://cognito-idp.us-east-2.amazonaws.com`, or sign-in fails.
+- **What it doesn't do yet:** the app keeps its data in the browser, so signing in proves who you are, but rides aren't stored on a server under your account.
+- **Removing it:** `aws cloudformation delete-stack --stack-name gclifts-auth --region us-east-2` deletes the user pool and every account in it.
 
 ### How it adapts to each device
 
@@ -195,18 +207,20 @@ Write class names out in full (for example `"bg-route"`, not `"bg-" + color`); T
 | `images/logo.jpg` | The GClifts logo in the app header (resized from the banner above) |
 | `images/icon.png` | The bobcat emblem, used as the browser tab and home-screen icon |
 | `setup-aws.sh` | AWS CLI and Agent Toolkit setup |
-| `setup-live-map.sh` | Creates the Location Service key and AppSync Events API in us-east-2, then writes `config.js` |
-| `config.js` | Browser keys and endpoints for the map and live tracking (generated, not committed) |
+| `setup-live-map.sh` | Creates the Location Service key, the AppSync Events API and the Cognito sign-in in us-east-2, then writes `config.js` |
+| `auth.yaml` | CloudFormation template for sign-in: the Cognito user pool, the school-email check and the website's client |
+| `config.js` | Browser keys and endpoints for the map, live tracking and sign-in (generated, not committed) |
+| `server/`, `template.yaml` | A WebSocket backend (API Gateway, Lambda, DynamoDB) for matching and chat across phones. Built and tested locally, not connected to the site or deployed |
 
 ## AWS architecture (next step)
 
 | Need | Service |
 |---|---|
-| School-email sign-in | **Cognito**, with a pre-signup Lambda that rejects any email not ending in `@gcsu.edu` or `@bobcats.gcsu.edu` |
+| School-email sign-in | **Cognito**, with a pre-signup Lambda that rejects any email not ending in `@gcsu.edu` or `@bobcats.gcsu.edu` (built: `auth.yaml`) |
 | Data | **DynamoDB**: Users, Drivers and Rides tables |
 | Matching | **Lambda** running the scoring logic above, behind **API Gateway** |
 | Maps and addresses | **Amazon Location Service** for map tiles, geocoding and road routes (built) |
-| Live driver location | **AppSync Events**, one channel per ride (built; switch from API key to Cognito auth once sign-in exists) |
+| Live driver location | **AppSync Events**, one channel per ride (built; can switch from API key to Cognito auth now that sign-in exists) |
 | Ride alerts | **SNS** text messages to drivers when a ride is requested |
 | Hosting | **S3** and **CloudFront**, or **Amplify Hosting** |
 
@@ -222,12 +236,12 @@ Region: the project is in `us-east-2`; the Agent Toolkit runs in `us-east-1`.
 ## Demo script (2 minutes)
 
 1. **The problem:** "Maria is a GC freshman with no car and a prescription to pick up at CVS. The GroupMe ride chat is chaos."
-2. **Connect to school:** choose Georgia College & State University and sign in with a `@bobcats.gcsu.edu` email. Show that a non-GC email is rejected, then enter the 6-digit code.
+2. **Connect to school:** choose Georgia College & State University and create an account with a `@bobcats.gcsu.edu` email. Show that a non-GC email is rejected, then enter the 6-digit code.
 3. **Request:** Maxwell Student Union to CVS Pharmacy, paying with Venmo.
 4. **Match:** point out the ride code, the reason this driver was picked, the matching payment method and the status card moving from on the way to here. Send the driver a message.
 5. **Finish:** record Venmo, tap 5 stars and leave a short review, then open the ride log and watch the payment change to Confirmed.
 6. **Drive:** open the Drive tab, save a driver profile, confirm Maya's payment and message her.
-7. **Close:** "Students helping students get to the trips that matter. Next, we put it on Cognito, DynamoDB and Location Service."
+7. **Close:** "Students helping students get to the trips that matter. Next, we store rides in DynamoDB so riders and drivers connect across phones."
 
 ## Judging fit
 

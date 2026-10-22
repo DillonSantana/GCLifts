@@ -45,7 +45,7 @@ Resources:
     Properties:
       CodeUri: server/
       Handler: lambda.handler
-      Runtime: nodejs20.x
+      Runtime: nodejs22.x
       Architectures: [arm64]
       MemorySize: 256
       Timeout: 10

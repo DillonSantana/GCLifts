@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# GClifts live map: creates (or reuses) the browser's AWS resources and writes config.js.
+# GClifts live map and sign-in: creates (or reuses) the browser's AWS resources and writes config.js.
 #   - Amazon Location Service API key: map tiles, routes and place search, read-only, localhost only
 #   - AWS AppSync Events API with a "rides" namespace: carries the driver's live position to the rider
+#   - Amazon Cognito user pool (auth.yaml, stack "gclifts-auth"): emails a code to verify each school email
 # Safe to run again; existing resources are reused.
 # Usage: bash setup-live-map.sh [profile-name]   (default: the default profile)
 set -euo pipefail
@@ -11,6 +12,7 @@ PROFILE_ARGS=()
 # The +-expansion keeps macOS's bash 3.2 from treating an empty array as unset under set -u.
 aws_(){ aws ${PROFILE_ARGS[@]+"${PROFILE_ARGS[@]}"} --region "$REGION" "$@"; }
 
+HERE="$(cd "$(dirname "$0")" && pwd)"
 LOCATION_KEY_NAME="gclifts-web"
 EVENTS_API_NAME="gclifts-live"
 
@@ -46,6 +48,14 @@ if [ "$EVENTS_KEY" = "None" ] || [ -z "$EVENTS_KEY" ]; then
     --expires $(( $(date +%s) + 365*86400 )) --query apiKey.id --output text)"
 fi
 
+echo "== Cognito sign-in =="
+# Creates the stack the first time and updates it if auth.yaml changed; no changes is fine.
+aws_ cloudformation deploy --template-file "$HERE/auth.yaml" --stack-name gclifts-auth \
+  --capabilities CAPABILITY_IAM --no-fail-on-empty-changeset >/dev/null
+auth_out(){ aws_ cloudformation describe-stacks --stack-name gclifts-auth --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue" --output text; }
+USER_POOL_ID="$(auth_out UserPoolId)"
+CLIENT_ID="$(auth_out ClientId)"
+
 cat > config.js <<EOF
 // Written by setup-live-map.sh. Browser keys are visible to anyone who opens the page, so they're
 // restricted on the AWS side. Not committed; run the script to recreate it.
@@ -54,7 +64,9 @@ window.GCLIFTS_CONFIG={
   locationKey:"$LOCATION_KEY",
   eventsHttp:"$EVENTS_HTTP",
   eventsRealtime:"$EVENTS_REALTIME",
-  eventsKey:"$EVENTS_KEY"
+  eventsKey:"$EVENTS_KEY",
+  userPoolId:"$USER_POOL_ID",
+  clientId:"$CLIENT_ID"
 };
 EOF
-echo "Wrote config.js (AppSync API $API_ID)"
+echo "Wrote config.js (AppSync API $API_ID, Cognito user pool $USER_POOL_ID)"
