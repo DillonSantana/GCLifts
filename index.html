@@ -55,6 +55,8 @@ const CAMPUS=[-83.2306,33.0801];
 // the driver is far from Milledgeville (or location is off), so demos anywhere stay on the GC map.
 const DEMO_SPOT=[-83.2352,33.0846];
 const DEMO_RADIUS_MI=25;
+// Typed pickups and drop-offs are only looked up within this many miles of campus.
+const NEAR_MI=25;
 // A driver's link to one ride (index.html#drive=<id>) opens the driver screen instead of the app.
 const DRIVE_ID=(location.hash.match(/^#drive=([\w-]{8,64})$/)||[])[1]||null;
 const SCHOOLS=[{name:"Georgia College & State University",short:"GC",city:"Milledgeville, GA",domains:["gcsu.edu","bobcats.gcsu.edu"]}];
@@ -180,12 +182,14 @@ class GeoService{
     return r.json();
   }
   cached(map,key,load){if(!map.has(key))map.set(key,load().catch(e=>{map.delete(key);throw e}));return map.get(key)}
-  // Known stops skip the lookup; anything else is geocoded with a bias toward campus.
+  // Known stops skip the lookup; anything else is searched only within NEAR_MI of campus, so a typed
+  // place never lands in another state. No match nearby means no pin and straight-line estimates.
   async locate(name){
     if(isStop(name))return pos(name);
     if(!this.ready)return null;
-    return this.cached(this.places,name.toLowerCase(),()=>this.post("places","geocode",
-      {QueryText:name,BiasPosition:CAMPUS,Filter:{IncludeCountries:["USA"]},MaxResults:1}).then(d=>d.ResultItems?.[0]?.Position||null));
+    return this.cached(this.places,name.toLowerCase(),()=>this.post("places","search-text",
+      {QueryText:name,Filter:{Circle:{Center:CAMPUS,Radius:Math.round(NEAR_MI*1609.34)}},MaxResults:1})
+      .then(d=>{const p=d.ResultItems?.[0]?.Position;return isPt(p)&&miles(p,CAMPUS)<=NEAR_MI?p:null}));
   }
   // Road route through [lng,lat] points: one {line, mi, min} per leg.
   route(points){
@@ -312,6 +316,8 @@ function onLive(ev){
     if(note)note.textContent=`${n} stopped sharing their location.`;return;
   }
   if(ev.kind!=="pos"||!isPt(ev.at))return;
+  // Keep the car near Milledgeville even if an older driver screen sends a far-away position.
+  if(miles(ev.at,CAMPUS)>DEMO_RADIUS_MI)ev={...ev,at:DEMO_SPOT,sim:true};
   // Real positions replace the simulated progress for the rest of this screen.
   rt.live=true;cancelAnimationFrame(raf);rideMap?.car(ev.at,true);
   if(note)note.textContent=ev.sim?`${n} is sharing a simulated drive.`:`${n} is sharing their live location.`;
